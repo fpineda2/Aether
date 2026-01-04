@@ -1,7 +1,13 @@
-import SpaceChains from "@/components/SpaceChains"
+import SpaceChains from "../components/SpaceChains"
+import BootWrapper from '../components/BootWrapper';
+import SpotifySection from "../components/SpotifySection";
+import SpotifyPlayer from "../components/SpotifyPlayer"
+import styles from "../styles/Dashboard.module.css";
 
 export default function Page() {
   return (
+
+    
     <div className="p-8 max-w-7xl mx-auto space-y-8">
       {/* Header */}
       <header className="text-center mb-8">
@@ -62,15 +68,19 @@ export default function Page() {
 
 
         {/* Playlist Section */}
-        <section  id="playlist" className="bg-gray-900/80 p-6 rounded-2xl shadow-lg shadow-green-500/30
-             filigree-border corner-flourish panel-gap">
-          <h2 className="font-[var(--font-heading)] italic text-xl mb-3 ink-underline">Music / Playlist</h2>
-          <ul className="list-disc ml-6 text-blue-400 space-y-2">
-            <li>#NextJS</li>
-            <li>#TailwindCSS</li>
-            <li>#MongoDB</li>
-          </ul>
+{/* Playlist Section */}
+        <section id="playlist" className={styles.playlistSection}>
+          <h2 className={styles.sectionTitle}>Playlists & Spotify</h2>
+
+          {/* SpotifySection is a client component with tabs: Next | Search | Browse */}
+          <SpotifySection />
+
+          {/* Optional player below */}
+          <div style={{ marginTop: 18 }}>
+            <SpotifyPlayer />
+          </div>
         </section>
+  
 
         {/* Links Section */}
         <section id="links" className="bg-gray-900/80 p-6 rounded-2xl shadow-lg shadow-pink-500/30

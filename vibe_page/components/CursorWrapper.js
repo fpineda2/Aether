@@ -1,8 +1,8 @@
 "use client"
 import { useState, useEffect } from "react"
-import CustomCursorGalaxy from "@/components/CustomCursorGalaxy"
-import BlackHoleCursor from "@/components/BlackHoleCursor"
-import CometCursor from "@/components/CometCursor"
+import CustomCursorGalaxy from "../components/CustomCursorGalaxy"
+import BlackHoleCursor from "../components/BlackHoleCursor"
+import CometCursor from "../components/CometCursor"
 
 export default function CursorWrapper() {
   const [variant, setVariant] = useState("galaxy")

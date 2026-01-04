@@ -1,6 +1,6 @@
 "use client"
 import { useEffect, useState } from "react"
-import CustomCursorGalaxy from "@/components/CustomCursorGalaxy"
+import CustomCursorGalaxy from "../components/CustomCursorGalaxy"
 
 export default function CursorControls() {
   const [variant, setVariant] = useState("galaxy") // default = galaxy

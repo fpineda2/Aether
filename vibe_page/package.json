@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "cookie": "^1.0.2",
     "framer-motion": "^12.23.22",
     "next": "15.5.3",
     "react": "19.1.0",

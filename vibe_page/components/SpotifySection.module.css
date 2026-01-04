@@ -1,0 +1,86 @@
+/* components/SpotifySection.module.css
+   Small updates: make control buttons visually obvious and consistent with play buttons.
+*/
+.container {
+  border-radius: 12px;
+  padding: 12px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.008));
+  box-shadow: 0 6px 18px rgba(0,0,0,0.45);
+  color: #e6eef8;
+  max-width: 980px;
+}
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.header h3 { margin: 0; font-size: 18px; }
+.tabs { display: flex; gap: 6px; }
+.tab {
+  background: transparent;
+  color: #bcd9ee;
+  border: 1px solid rgba(255,255,255,0.03);
+  padding: 6px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.tab:hover { opacity: 0.95; }
+.active {
+  background: linear-gradient(90deg,#6ae0ff,#7a4bff);
+  color: white;
+  border: none;
+}
+.body { margin-top: 12px; }
+.controls { display:flex; gap:8px; margin-bottom: 12px; }
+.controlBtn {
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: none;
+  background: linear-gradient(90deg,#6ae0ff,#7a4bff);
+  color: #061728;
+  font-weight: 700;
+  cursor: pointer;
+}
+.controlBtn:disabled { opacity: 0.5; cursor: default; }
+
+.note { color: #9fb0c8; margin:6px 0; }
+.error { color: #ff9b9b; margin:6px 0; }
+
+.current { display:flex; gap:12px; align-items:center; }
+.artLarge { width: 88px; height: 88px; border-radius: 8px; object-fit: cover; }
+.currentMeta { display:flex; flex-direction:column; gap:6px; }
+.progressSmall { color:#9fb0c8; font-size:12px; }
+
+.results { display:flex; flex-direction:column; gap:8px; margin-top:10px; }
+.track, .playlist {
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:8px;
+  border-radius: 8px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.006), rgba(255,255,255,0.004));
+}
+.art { width:56px; height:56px; border-radius:6px; object-fit:cover; }
+.meta { flex:1; min-width:0; }
+.title { font-weight:700; color: #e8f7ff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.subtitle { color:#9fb0c8; font-size:13px; margin-top:4px; }
+.actions { display:flex; gap:8px; align-items:center; }
+
+/* Play button made clearly button-like */
+.playBtn {
+  background: linear-gradient(90deg,#6ae0ff,#7a4bff);
+  color: #072034;
+  padding: 8px 12px;
+  border-radius:10px;
+  border:none;
+  font-weight:700;
+  cursor:pointer;
+}
+
+/* search */
+.searchForm { display:flex; gap:8px; margin-bottom:8px; }
+.searchInput { flex:1; padding:8px; border-radius:8px; border:1px solid rgba(255,255,255,0.03); background:transparent; color:inherit; }
+.searchBtn { padding:8px 10px; border-radius:8px; border:none; background:#6ae0ff; color:#072034; font-weight:700; cursor:pointer; }
+
+.sectionHeader { margin-top:12px; color:#cfeaf6; font-weight:800; }

@@ -1,0 +1,294 @@
+/* components/Intro.module.css
+   Updated styles to make the nebula more abstract and cooler:
+   - multi-layered clouds + wisps + chromatic overlays
+   - rotating subtle layers, conic gradients, and frag ring strokes for abstraction
+   - bloom layers are hidden until explosion to avoid tint during rendering
+   - explosion canvas rules included
+*/
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at 30% 20%, rgba(3,8,20,0.78), rgba(0,2,6,0.92));
+  color: #262ab0;
+  -webkit-font-smoothing: antialiased;
+  pointer-events: auto;
+  overflow: hidden;
+}
+
+/* full-viewport canvas for particles */
+.explosionCanvas {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 10003;
+  pointer-events: none;
+}
+
+/* explosion bloom/backdrop - hidden until exploding */
+.explosionBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 900ms ease-out, transform 900ms ease-out;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.exploding {
+  opacity: 1;
+}
+
+/* bloom soft color blobs */
+.bloomA, .bloomB, .bloomC {
+  position: absolute;
+  width: 140%;
+  height: 140%;
+  border-radius: 50%;
+  filter: blur(72px) saturate(1.36);
+  mix-blend-mode: screen;
+  opacity: 0;
+  transition: transform 900ms ease-out, opacity 900ms ease-out;
+}
+.bloomA { background: radial-gradient(circle at 30% 30%, rgba(71, 79, 237, 0.34), rgba(80,40,200,0.06)); transform: scale(0.6); }
+.bloomB { background: radial-gradient(circle at 70% 60%, rgba(40,200,255,0.20), rgba(10,110,180,0.04)); transform: scale(0.5) translate(-6%,4%); }
+.bloomC { background: radial-gradient(circle at 50% 55%, rgba(28, 3, 39, 0.14), rgba(255,120,160,0.03)); transform: scale(0.45) translate(4%,-6%); }
+.exploding .bloomA { transform: scale(8.4) translate(-10%, -6%); opacity: 0.88; }
+.exploding .bloomB { transform: scale(8.6) translate(6%, 10%); opacity: 0.82; }
+.exploding .bloomC { transform: scale(9.0) translate(-4%, 8%); opacity: 0.76; }
+
+/* center card container */
+.center {
+  position: relative;
+  width: min(980px, 94%);
+  padding: 28px;
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  background: linear-gradient(180deg, rgba(33, 167, 204, 0.015), rgba(191, 190, 196, 0.008));
+  box-shadow: 0 12px 40px rgba(18, 89, 136, 0.6);
+  backdrop-filter: blur(6px) saturate(1.05);
+  z-index: 10001;
+}
+
+/* nebula orb: abstract composition */
+.nebula {
+  position: relative;
+  width: 320px;
+  height: 320px;
+  border-radius: 50%;
+  overflow: visible;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 420ms cubic-bezier(.2,.9,.2,1), box-shadow 300ms;
+  transform-origin: center;
+}
+
+/* idle animation: subtle float + layer rotation for abstraction */
+.idle {
+  animation: nebulaFloat 6.4s ease-in-out infinite;
+  box-shadow: 0 36px 160px rgba(49, 21, 175, 0.46), inset 0 -18px 48px rgba(98, 41, 211, 0.45);
+}
+
+/* rendering state reduces heavy filters */
+.rendering {
+  transform: scale(0.96);
+  filter: none;
+  animation: none;
+}
+
+/* explosion: scale orbital and fade */
+.explode {
+  transform: scale(20);
+  opacity: 0;
+  transition: transform 900ms ease-out, opacity 600ms ease-out;
+}
+
+/* multi-layer abstract cloud (CSS layers, animated) */
+.layerClouds {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background:
+    radial-gradient(closest-side at 38% 30%, rgba(19, 117, 162, 0.26), transparent 18%),
+    radial-gradient(closest-side at 72% 70%, rgba(20, 133, 189, 0.18), transparent 18%),
+    radial-gradient(closest-side at 52% 56%, rgba(136, 19, 198, 0.1), transparent 20%);
+  filter: blur(20px) contrast(108%);
+  mix-blend-mode: screen;
+  transform: translateZ(0) scale(1.02);
+  animation: cloudsDrift 18s linear infinite;
+  z-index: 2;
+}
+
+/* wisps layer: conic + animated mask for abstract shapes */
+.layerWisps {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background:
+    conic-gradient(from 120deg at 48% 52%, rgba(120,70,220,0.12), rgba(40,200,255,0.08), rgba(255,110,200,0.06), rgba(120,70,220,0.12));
+  filter: blur(26px) saturate(1.1);
+  mix-blend-mode: screen;
+  opacity: 0.95;
+  transform-origin: center;
+  animation: wispsRotate 16s linear infinite;
+  z-index: 3;
+}
+
+/* bright core glow */
+.coreGlow {
+  position: absolute;
+  width: 36%;
+  height: 36%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 42% 36%, rgba(19, 39, 175, 0.98), rgba(10, 5, 175, 0.6) 10%, rgba(34, 7, 89, 0.08) 36%, transparent 52%);
+  box-shadow: 0 0 90px rgba(136, 6, 123, 0.28), inset 0 -12px 32px rgba(87, 9, 182, 0.3);
+  z-index: 6;
+}
+
+/* soft chromatic overlay (slightly shifted color channels) */
+.chromatic {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  background:
+    radial-gradient(circle at 32% 30%, rgba(61, 3, 161, 0.08), transparent 20%),
+    radial-gradient(circle at 68% 68%, rgba(3, 11, 154, 0.06), transparent 24%);
+  filter: blur(34px) saturate(1.2);
+  z-index: 4;
+}
+
+/* ring + fragments */
+.ringSvg {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  z-index: 8;
+  pointer-events: none;
+  transform: scale(1.02);
+}
+.fragRing { opacity: 0.9; transform-origin: center; }
+
+/* hint text */
+.hint {
+  position: absolute;
+  bottom: 8%;
+  left: 50%;
+  transform: translateX(-50%);
+  color: rgba(135, 102, 210, 0.98);
+  font-weight: 800;
+  font-size: 14px;
+  text-shadow: 0 6px 18px rgba(0, 4, 22, 0.55);
+  z-index: 12;
+  animation: hintBounce 2.6s ease-in-out infinite;
+}
+
+/* boot text below */
+.bootText {
+  color: #cfeaf6;
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: 0.2px;
+}
+
+/* Start button */
+.startBtn {
+  margin-top: 8px;
+  background: linear-gradient(90deg, #6ad9ff, #7a4bff);
+  color: #fff;
+  border: none;
+  padding: 12px 18px;
+  border-radius: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 12px 34px rgba(80,70,160,0.16);
+  transition: transform 140ms ease, box-shadow 140ms ease;
+}
+.startBtn:active { transform: translateY(1px) scale(0.997); }
+.startBtn:focus { outline: 2px solid rgba(125,211,252,0.28); }
+
+/* Progress bar */
+.progressWrap {
+  width: 84%;
+  max-width: 640px;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 240ms ease, transform 240ms ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+.progressWrap.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+.progressLabel {
+  color: #e6f6ff;
+  font-weight: 800;
+  font-size: 13px;
+  letter-spacing: 0.6px;
+}
+.progressBar {
+  width: 100%;
+  height: 14px;
+  background: linear-gradient(90deg, rgba(255,255,255,0.03), rgba(255,255,255,0.02));
+  border-radius: 999px;
+  overflow: hidden;
+  box-shadow: inset 0 -1px 0 rgba(255,255,255,0.02);
+}
+.progressFill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #6ae0ff 0%, #7dd3fc 30%, #ab7bff 68%, #7a4bff 100%);
+  transition: width 120ms linear;
+  border-radius: 999px;
+  box-shadow: 0 6px 20px rgba(110,80,220,0.14);
+}
+.progressPct {
+  color: rgba(180,210,240,0.9);
+  font-weight: 800;
+  font-size: 12px;
+}
+
+/* animations */
+@keyframes nebulaFloat {
+  0% { transform: translateY(0) rotate(0deg) scale(0.997); }
+  50% { transform: translateY(-8px) rotate(0.45deg) scale(1.016); }
+  100% { transform: translateY(0) rotate(0deg) scale(0.997); }
+}
+@keyframes cloudsDrift {
+  0% { transform: translate(0,0) rotate(0deg) scale(1); opacity: 1; }
+  50% { transform: translate(-10px,-8px) rotate(6deg) scale(1.03); opacity: 0.98; }
+  100% { transform: translate(0,0) rotate(0deg) scale(1); opacity: 1; }
+}
+@keyframes wispsRotate {
+  0% { transform: rotate(0deg) scale(1); }
+  50% { transform: rotate(120deg) scale(1.01); }
+  100% { transform: rotate(360deg) scale(1); }
+}
+@keyframes hintBounce {
+  0% { transform: translateX(-50%) translateY(0) scale(1); opacity: .98; }
+  50% { transform: translateX(-50%) translateY(-8px) scale(1.03); opacity: 1; }
+  100% { transform: translateX(-50%) translateY(0) scale(1); opacity: .98; }
+}
+
+/* responsive */
+@media (max-width: 640px) {
+  .nebula { width: 220px; height: 220px; }
+  .progressWrap { width: 92%; }
+}

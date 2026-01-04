@@ -1,0 +1,4 @@
+/* components/BootWrapper.module.css */
+.container {
+  min-height: 100vh;
+}

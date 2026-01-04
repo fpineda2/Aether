@@ -2,7 +2,8 @@
 
 import "./globals.css"
 import { useState, useEffect } from "react"
-import CursorWrapper from "@/components/CursorWrapper"
+import BootWrapper from "../components/BootWrapper";
+import CursorWrapper from "../components/CursorWrapper"
 
 export default function RootLayout({ children }) {
   const [showIntro, setShowIntro] = useState(true)
@@ -168,22 +169,9 @@ export default function RootLayout({ children }) {
 
         {/* Cursor + your UI */}
         <CursorWrapper />
+        
+      <BootWrapper>{children}</BootWrapper>
 
-        {/* Intro Screen */}
-        {showIntro && (
-          <div className="fixed inset-0 flex flex-col items-center justify-center bg-black/70 z-50">
-            <div className="w-40 h-40 bg-purple-600 rounded-full shadow-lg shadow-purple-500/70 animate-pulse"></div>
-            <button
-              onClick={() => setShowIntro(false)}
-              className="mt-6 px-6 py-3 bg-gradient-to-r from-pink-500 to-purple-600 rounded-lg shadow-md shadow-purple-400 text-lg font-semibold flex items-center space-x-2 hover:scale-105 transition-transform"
-            >
-              🚀 <span>Start Experience</span>
-            </button>
-          </div>
-        )}
-
-        {/* Main Content */}
-        {!showIntro && <div className="relative z-10">{children}</div>}
       </body>
     </html>
   )
