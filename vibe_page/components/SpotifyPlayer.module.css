@@ -62,6 +62,6 @@
   color:#e6eef8;
   border:1px solid rgba(255,255,255,0.03);
 }
-.warnBox { margin-top:12px; padding:10px; border-radius:8px; background: rgba(255,200,100,0.06); color:#ffdcb2; }
+.warnBox { margin-top:12px; padding:10px; border-radius:8px; background: rgba(255,200,100,0.06); color:#80c4ee; }
 .errorBox { margin-top:12px; padding:10px; border-radius:8px; background: rgba(255,80,80,0.06); color:#ff9b9b; }
 .link { color:#fff; font-weight:700; text-decoration:underline; }

@@ -63,7 +63,7 @@ export default function RootLayout({ children }) {
     drawStars()
     window.addEventListener("resize", resizeStar)
 
-    // --- SPIDERWEB (your original, unchanged except zIndex) ---
+    // --- SPIDERWEB (original, unchanged except zIndex) ---
     const webCanvas = document.createElement("canvas")
     webCanvas.id = "spiderweb-bg"
     Object.assign(webCanvas.style, {
@@ -80,7 +80,7 @@ export default function RootLayout({ children }) {
     const ctx = webCanvas.getContext("2d")
     let width, height, particles
     const mouse = { x: null, y: null }
-    let hue = 200 // keep your cosmic hue rotation
+    let hue = 200 // keep cosmic hue rotation
 
     function resizeWeb() {
       width = webCanvas.width = window.innerWidth

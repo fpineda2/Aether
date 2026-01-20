@@ -5,6 +5,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import styles from "./SpotifyPlayer.module.css";
+import SpotifySection from "../components/SpotifySection";
 
 export default function SpotifyPlayer({ name = "VIBE Web Player" }) {
   const playerRef = useRef(null);
@@ -308,7 +309,7 @@ export default function SpotifyPlayer({ name = "VIBE Web Player" }) {
   return (
     <div className={styles.container}>
       <div className={styles.headerRow}>
-        <div className={styles.title}>Spotify</div>
+        <div className={styles.title}> </div>
         {loading && <div className={styles.sub}>Initializing player…</div>}
         {tokenLoading && <div className={styles.sub}>Refreshing token…</div>}
       </div>
@@ -342,7 +343,10 @@ export default function SpotifyPlayer({ name = "VIBE Web Player" }) {
 
       {!needsReconnect && isPremium && (
         <div>
-         {/* <div className={styles.playbackArea}>{renderPlayback()}</div>*/}
+          {/*<div className={styles.playbackArea}>{renderPlayback()}</div>*/}
+          <div style={{ marginTop: 17 }}>
+            <SpotifySection />
+          </div>
 
           <div className={styles.controlsRow}>
             <button
@@ -354,6 +358,8 @@ export default function SpotifyPlayer({ name = "VIBE Web Player" }) {
                   if (deviceId) {
                     const tOk = await transferPlaybackToDevice(deviceId);
                     if (tOk) await sendControl("play");
+                    {/* here is where I should add SpotifySection */}
+                    
                   }
                 }
               }}
@@ -372,7 +378,7 @@ export default function SpotifyPlayer({ name = "VIBE Web Player" }) {
               >
                 Transfer to this device
               </button>
-            )}
+            )} 
           </div>
         </div>
       )}

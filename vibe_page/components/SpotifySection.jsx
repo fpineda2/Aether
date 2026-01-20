@@ -131,7 +131,7 @@ export default function SpotifySection() {
   return (
     <section className={styles.container} aria-label="Spotify section">
       <div className={styles.header}>
-        <h3>Spotify</h3>
+        
         <div className={styles.tabs}>
           <button className={`${styles.tab} ${tab === "next" ? styles.active : ""}`} onClick={() => setTab("next")}>Next</button>
           <button className={`${styles.tab} ${tab === "search" ? styles.active : ""}`} onClick={() => setTab("search")}>Search</button>
@@ -145,7 +145,7 @@ export default function SpotifySection() {
         {tab === "next" && (
           <div>
             <div className={styles.controls}>
-              <button onClick={skipNext} className={styles.controlBtn} disabled={loading}>Skip to next</button>
+              <button onClick={skipNext} className={styles.controlBtn} disabled={loading}>Skip</button>
               <button onClick={fetchCurrent} className={styles.controlBtn} disabled={loading}>Refresh</button>
             </div>
 

@@ -3,6 +3,7 @@ import BootWrapper from '../components/BootWrapper';
 import SpotifySection from "../components/SpotifySection";
 import SpotifyPlayer from "../components/SpotifyPlayer"
 import styles from "../styles/Dashboard.module.css";
+import App from "../components/App";
 
 export default function Page() {
   return (
@@ -57,8 +58,9 @@ export default function Page() {
         </aside>
 
         {/* Feed Section */}
-        <section id="feed" className="bg-gray-900/70 p-6 rounded-2xl shadow-lg shadow-purple-500/30 backdrop-blur-md md:col-span-2">
-          <h2 className="text-xl font-bold mb-4">Feed / About Me / Art</h2>
+        <section id="feed" className="linear-gradient(180deg,rgba(255,255,255,0.01),rgba(255,255,255,0.006))
+          box-shadow:0-8px-30px-rgba(0,0,0,0.45) padding:14px rounded-2xl shadow-lg shadow-purple-500/30 md:col-span-2">
+                  <h2 className={styles.sectionTitle}>Feed</h2>
           <ul className="list-disc ml-6 text-gray-200 space-y-2">
             <li>Post 1</li>
             <li>Post 2</li>
@@ -72,13 +74,14 @@ export default function Page() {
         <section id="playlist" className={styles.playlistSection}>
           <h2 className={styles.sectionTitle}>Playlists & Spotify</h2>
 
-          {/* SpotifySection is a client component with tabs: Next | Search | Browse */}
-          <SpotifySection />
-
           {/* Optional player below */}
           <div style={{ marginTop: 18 }}>
-            <SpotifyPlayer />
+            <App />
           </div>
+
+          {/* SpotifySection is a client component with tabs: Next | Search | Browse */}
+          
+
         </section>
   
 
