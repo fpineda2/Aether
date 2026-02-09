@@ -16,6 +16,9 @@ export default function handler(req, res) {
     "user-read-currently-playing",
     "user-read-private",
     "user-read-email",
+    "user-library-read",              // ← ADDED: Read saved tracks
+    "playlist-read-private",          // ← ADDED: Read playlists (you already have this working, but good to be explicit)
+    "playlist-read-collaborative",    // ← ADDED: Read collaborative playlists
   ].join(" ");
 
   const nonce = crypto.randomBytes(16).toString("hex");

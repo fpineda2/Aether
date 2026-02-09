@@ -5,6 +5,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import styles from "./SpotifyPlayer.module.css";
+import SpotifySection from "./SpotifySection";
 
 export default function SpotifyPlayer({ name = "VIBE Web Player" }) {
   const playerRef = useRef(null);
@@ -15,6 +16,7 @@ export default function SpotifyPlayer({ name = "VIBE Web Player" }) {
   const [isPremium, setIsPremium] = useState(null); // null=unknown
   const [deviceId, setDeviceId] = useState(null);
   const [playbackState, setPlaybackState] = useState(null);
+  const [isTransferring, setIsTransferring] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -78,6 +80,13 @@ export default function SpotifyPlayer({ name = "VIBE Web Player" }) {
     return new Promise((resolve, reject) => {
       if (typeof window === "undefined") return reject(new Error("No window"));
       if (window.Spotify) return resolve();
+      
+      // Define the global callback that Spotify SDK expects
+      window.onSpotifyWebPlaybackSDKReady = () => {
+        console.log("Spotify SDK ready callback fired");
+        resolve();
+      };
+      
       const id = "spotify-player-sdk";
       if (document.getElementById(id)) {
         const wait = setInterval(() => {
@@ -94,24 +103,11 @@ export default function SpotifyPlayer({ name = "VIBE Web Player" }) {
         }, 8000);
         return;
       }
+      
       const s = document.createElement("script");
       s.id = id;
       s.src = "https://sdk.scdn.co/spotify-player.js";
       s.async = true;
-      s.onload = () => {
-        const wait = setInterval(() => {
-          if (window.Spotify) {
-            clearInterval(wait);
-            resolve();
-          }
-        }, 50);
-        setTimeout(() => {
-          if (!window.Spotify) {
-            clearInterval(wait);
-            reject(new Error("Spotify SDK loaded but window.Spotify missing"));
-          }
-        }, 4000);
-      };
       s.onerror = () => reject(new Error("Failed to load Spotify SDK"));
       document.head.appendChild(s);
     });
@@ -167,10 +163,31 @@ export default function SpotifyPlayer({ name = "VIBE Web Player" }) {
       setError("Playback error: " + message);
     });
 
-    player.addListener("ready", ({ device_id }) => {
+    player.addListener("ready", async ({ device_id }) => {
       console.info("Spotify Player ready with device id", device_id);
       setDeviceId(device_id);
       setLoading(false);
+      
+      // Auto-transfer playback to this device to make it the active device
+      try {
+        const currentState = await fetch("/api/spotify/current", { cache: "no-store" });
+        
+        // If there's no active playback anywhere (204) or playback exists but on another device
+        if (currentState.status === 204) {
+          console.info("No active playback detected - transferring to this device");
+          await transferPlaybackToDevice(device_id, true);
+        } else if (currentState.ok) {
+          const state = await currentState.json();
+          // If playing on a different device, optionally auto-transfer
+          if (state.device && state.device.id !== device_id) {
+            console.info("Playback active on another device - this device is ready for manual transfer");
+            // Optionally uncomment below to auto-transfer from other devices:
+            // await transferPlaybackToDevice(device_id, true);
+          }
+        }
+      } catch (err) {
+        console.warn("Auto-transfer check failed", err);
+      }
     });
 
     player.addListener("not_ready", ({ device_id }) => {
@@ -236,45 +253,95 @@ export default function SpotifyPlayer({ name = "VIBE Web Player" }) {
         return false;
       } else {
         const txt = await r.text().catch(() => "");
-        setError("Control failed: " + txt);
+        console.error("Control failed:", txt);
         return false;
       }
     } catch (err) {
       console.error("sendControl error", err);
-      setError("Control request failed");
       return false;
     }
   }
 
-  async function transferPlaybackToDevice(targetDeviceId) {
+  async function transferPlaybackToDevice(targetDeviceId, silent = false) {
     if (!targetDeviceId) {
-      setError("No device id provided for transfer");
+      if (!silent) setError("No device id provided for transfer");
       return false;
     }
+    
+    setIsTransferring(true);
+    
     try {
       const r = await fetch("/api/spotify/transfer", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ device_id: targetDeviceId }),
       });
+      
+      setIsTransferring(false);
+      
       if (r.status === 204) {
         await refreshPlaybackStateFromServer();
         setDeviceId(targetDeviceId);
+        if (!silent) {
+          setError(""); // Clear any previous errors
+        }
         return true;
       } else if (r.status === 401) {
         setNeedsReconnect(true);
-        const txt = await r.text().catch(() => "");
-        setError("Transfer auth failed: " + txt);
+        if (!silent) {
+          const txt = await r.text().catch(() => "");
+          setError("Transfer auth failed: " + txt);
+        }
         return false;
       } else {
-        const txt = await r.text().catch(() => "");
-        setError("Transfer failed: " + txt);
+        if (!silent) {
+          const txt = await r.text().catch(() => "");
+          setError("Transfer failed: " + txt);
+        }
         return false;
       }
     } catch (err) {
       console.error("transferPlaybackToDevice error", err);
-      setError("Transfer request failed");
+      setIsTransferring(false);
+      if (!silent) setError("Transfer request failed");
       return false;
+    }
+  }
+
+  async function handlePlayPause() {
+    if (isPlaying) {
+      // Simple pause
+      await sendControl("pause");
+    } else {
+      // Try to play
+      setError(""); // Clear any previous errors
+      const ok = await sendControl("play");
+      
+      if (!ok && deviceId) {
+        console.info("Play failed - attempting transfer and retry");
+        setIsTransferring(true);
+        
+        // Transfer playback to this device first
+        const transferOk = await transferPlaybackToDevice(deviceId);
+        
+        if (transferOk) {
+          // Wait a moment for the transfer to complete
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+          // Try playing again
+          const retryOk = await sendControl("play");
+          
+          if (!retryOk) {
+            setError("Unable to start playback. Please start a song in your Spotify app first, then try again.");
+          }
+        } else {
+          setError("Could not transfer playback to this device. Try using the 'Transfer to this device' button below.");
+        }
+        
+        setIsTransferring(false);
+      } else if (!ok) {
+        setError("Playback failed. Please ensure you have an active Spotify session.");
+      }
     }
   }
 
@@ -308,16 +375,20 @@ export default function SpotifyPlayer({ name = "VIBE Web Player" }) {
   return (
     <div className={styles.container}>
       <div className={styles.headerRow}>
-        <div className={styles.title}>Spotify</div>
+        <div className={styles.title}> </div>
         {loading && <div className={styles.sub}>Initializing player…</div>}
         {tokenLoading && <div className={styles.sub}>Refreshing token…</div>}
+        {isTransferring && <div className={styles.sub}>Transferring playback…</div>}
       </div>
 
       {error && (
         <div className={styles.errorBox}>
           {error}
           <div>
-            <button className={styles.auxBtn} onClick={() => window.location.reload()}>Retry</button>
+            <button className={styles.auxBtn} onClick={() => {
+              setError("");
+              window.location.reload();
+            }}>Retry</button>
           </div>
         </div>
       )}
@@ -342,37 +413,37 @@ export default function SpotifyPlayer({ name = "VIBE Web Player" }) {
 
       {!needsReconnect && isPremium && (
         <div>
-         {/* <div className={styles.playbackArea}>{renderPlayback()}</div>*/}
+          {/*<div className={styles.playbackArea}>{renderPlayback()}</div>*/}
+          <div style={{ marginTop: 17 }}>
+            <SpotifySection />
+          </div>
 
           <div className={styles.controlsRow}>
             <button
               className={`${styles.controlBtn} ${isPlaying ? styles.negative : styles.positive}`}
-              onClick={async () => {
-                const action = isPlaying ? "pause" : "play";
-                const ok = await sendControl(action);
-                if (!ok && action === "play") {
-                  if (deviceId) {
-                    const tOk = await transferPlaybackToDevice(deviceId);
-                    if (tOk) await sendControl("play");
-                  }
-                }
-              }}
+              onClick={handlePlayPause}
+              disabled={isTransferring}
             >
-              {isPlaying ? "Pause" : "Play"}
+              {isTransferring ? "Transferring..." : (isPlaying ? "Pause" : "Play")}
             </button>
 
             {deviceId && (
               <button
                 className={styles.secondaryBtn}
                 onClick={async () => {
+                  setError("");
                   const ok = await transferPlaybackToDevice(deviceId);
-                  if (ok) alert("Transfer succeeded — playback should move to this device.");
-                  else alert("Transfer failed — check the error message above or in the console.");
+                  if (ok) {
+                    setError("Transfer succeeded — playback moved to this device.");
+                    // Clear success message after 3 seconds
+                    setTimeout(() => setError(""), 3000);
+                  }
                 }}
+                disabled={isTransferring}
               >
-                Transfer to this device
+                {isTransferring ? "Transferring..." : "Transfer to this device"}
               </button>
-            )}
+            )} 
           </div>
         </div>
       )}

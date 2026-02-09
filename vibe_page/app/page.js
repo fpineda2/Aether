@@ -73,7 +73,7 @@ export default function Page() {
           <h2 className={styles.sectionTitle}>Playlists & Spotify</h2>
 
           {/* SpotifySection is a client component with tabs: Next | Search | Browse */}
-          <SpotifySection />
+          {/* SpotifySection /> */}
 
           {/* Optional player below */}
           <div style={{ marginTop: 18 }}>
