@@ -17,6 +17,19 @@ export default function SpotifyPlayer({ name = "VIBE Web Player" }) {
   const [deviceId, setDeviceId] = useState(null);
   const [playbackState, setPlaybackState] = useState(null);
   const [isTransferring, setIsTransferring] = useState(false);
+  const [isControlling, setIsControlling] = useState(false); // Prevent double clicks
+
+  // Suppress harmless Spotify SDK robustness warning
+  useEffect(() => {
+    const originalWarn = console.warn;
+    console.warn = (...args) => {
+      if (args[0]?.includes?.('robustness level')) return;
+      originalWarn(...args);
+    };
+    return () => {
+      console.warn = originalWarn;
+    };
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -69,8 +82,16 @@ export default function SpotifyPlayer({ name = "VIBE Web Player" }) {
 
     initFlow();
 
+    // Periodic refresh to keep playback state accurate (only when page is visible)
+    const refreshInterval = setInterval(() => {
+      if (!isControlling && document.visibilityState === 'visible') {
+        refreshPlaybackStateFromServer();
+      }
+    }, 3000); // Every 3 seconds
+
     return () => {
       mounted = false;
+      clearInterval(refreshInterval);
       cleanupPlayer();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -230,6 +251,7 @@ export default function SpotifyPlayer({ name = "VIBE Web Player" }) {
         is_playing: !!json.is_playing,
         track_window: { current_track: json.item || null },
         progress_ms: json.progress_ms || 0,
+        device: json.device || null, // Add device info
       });
     } catch (e) {
       console.warn("refreshPlaybackStateFromServer failed", e);
@@ -239,25 +261,38 @@ export default function SpotifyPlayer({ name = "VIBE Web Player" }) {
   async function sendControl(action) {
     try {
       const body = { action };
-      if (action === "play" && deviceId) body.device_id = deviceId;
+      // DON'T send device_id - let it control the currently active device
+      // if (action === "play" && deviceId) body.device_id = deviceId;
+      
       const r = await fetch("/api/spotify/control", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
       if (r.status === 204) {
-        await refreshPlaybackStateFromServer();
+        // Success - the 5s interval will catch the state change
         return true;
       } else if (r.status === 401) {
         setNeedsReconnect(true);
         return false;
+      } else if (r.status === 403) {
+        const txt = await r.text().catch(() => "");
+        console.error("Control forbidden (403):", txt);
+        if (txt.includes("Restriction violated") || txt.includes("PREMIUM_REQUIRED")) {
+          setError("⚠️ Unable to control playback. You may need to start playing music first or have Spotify Premium.");
+        } else {
+          setError("Playback restricted. Ensure you have Spotify Premium.");
+        }
+        return false;
       } else {
         const txt = await r.text().catch(() => "");
         console.error("Control failed:", txt);
+        setError("Playback control failed. Try starting playback in Spotify first.");
         return false;
       }
     } catch (err) {
       console.error("sendControl error", err);
+      setError("Control request failed. Check your connection and try again.");
       return false;
     }
   }
@@ -309,39 +344,18 @@ export default function SpotifyPlayer({ name = "VIBE Web Player" }) {
   }
 
   async function handlePlayPause() {
-    if (isPlaying) {
-      // Simple pause
-      await sendControl("pause");
-    } else {
-      // Try to play
-      setError(""); // Clear any previous errors
-      const ok = await sendControl("play");
-      
-      if (!ok && deviceId) {
-        console.info("Play failed - attempting transfer and retry");
-        setIsTransferring(true);
-        
-        // Transfer playback to this device first
-        const transferOk = await transferPlaybackToDevice(deviceId);
-        
-        if (transferOk) {
-          // Wait a moment for the transfer to complete
-          await new Promise(resolve => setTimeout(resolve, 500));
-          
-          // Try playing again
-          const retryOk = await sendControl("play");
-          
-          if (!retryOk) {
-            setError("Unable to start playback. Please start a song in your Spotify app first, then try again.");
-          }
-        } else {
-          setError("Could not transfer playback to this device. Try using the 'Transfer to this device' button below.");
-        }
-        
-        setIsTransferring(false);
-      } else if (!ok) {
-        setError("Playback failed. Please ensure you have an active Spotify session.");
+    if (isControlling) return;
+    
+    setIsControlling(true);
+    
+    try {
+      if (isPlaying) {
+        await sendControl("pause");
+      } else {
+        await sendControl("play");
       }
+    } finally {
+      setTimeout(() => setIsControlling(false), 400);
     }
   }
 
@@ -382,13 +396,37 @@ export default function SpotifyPlayer({ name = "VIBE Web Player" }) {
       </div>
 
       {error && (
-        <div className={styles.errorBox}>
-          {error}
+        <div className={styles.errorBox} style={{ 
+          background: 'rgba(147, 51, 234, 0.15)',
+          border: '2px solid #9333ea',
+          borderRadius: '8px',
+          padding: '16px',
+          marginBottom: '16px'
+        }}>
+          <div style={{ 
+            fontSize: '15px', 
+            fontWeight: '600',
+            color: '#a855f7',
+            marginBottom: '8px'
+          }}>
+            {error}
+          </div>
           <div>
-            <button className={styles.auxBtn} onClick={() => {
-              setError("");
-              window.location.reload();
-            }}>Retry</button>
+            <button 
+              className={styles.auxBtn} 
+              onClick={() => setError("")}
+              style={{
+                background: '#9333ea',
+                color: '#fff',
+                border: 'none',
+                padding: '8px 16px',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontWeight: '600'
+              }}
+            >
+              Dismiss
+            </button>
           </div>
         </div>
       )}
@@ -422,12 +460,12 @@ export default function SpotifyPlayer({ name = "VIBE Web Player" }) {
             <button
               className={`${styles.controlBtn} ${isPlaying ? styles.negative : styles.positive}`}
               onClick={handlePlayPause}
-              disabled={isTransferring}
+              disabled={isTransferring || isControlling}
             >
-              {isTransferring ? "Transferring..." : (isPlaying ? "Pause" : "Play")}
+              {isPlaying ? "Pause" : "Play"}
             </button>
 
-            {deviceId && (
+            {deviceId && playbackState?.device && playbackState.device.name !== "VIBE Web Player" && (
               <button
                 className={styles.secondaryBtn}
                 onClick={async () => {
@@ -437,6 +475,9 @@ export default function SpotifyPlayer({ name = "VIBE Web Player" }) {
                     setError("Transfer succeeded — playback moved to this device.");
                     // Clear success message after 3 seconds
                     setTimeout(() => setError(""), 3000);
+                    
+                    // Notify other components that device changed
+                    window.dispatchEvent(new CustomEvent('spotify-device-changed'));
                   }
                 }}
                 disabled={isTransferring}

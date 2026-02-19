@@ -3,7 +3,7 @@
 // Enhanced version with Next | Search | Library tabs
 // Library now includes drill-down into playlists and better organization
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import styles from "./SpotifySection.module.css";
 
 export default function SpotifySection() {
@@ -19,18 +19,60 @@ export default function SpotifySection() {
   const [libraryView, setLibraryView] = useState("playlists"); // playlists | albums | tracks
   const [selectedPlaylist, setSelectedPlaylist] = useState(null);
   const [playlistTracks, setPlaylistTracks] = useState([]);
+  const hasDataRef = useRef(false); // Track if we've gotten data
+
+  // Listen for device changes from SpotifyPlayer
+  useEffect(() => {
+    const handleDeviceChange = () => {
+      console.log("Device changed - refreshing playback state");
+      if (tab === "next") {
+        setTimeout(() => fetchCurrent(), 500);
+      }
+    };
+    
+    window.addEventListener('spotify-device-changed', handleDeviceChange);
+    return () => window.removeEventListener('spotify-device-changed', handleDeviceChange);
+  }, [tab]);
 
   // Auto-fetch current playback on mount if starting on Next tab
   useEffect(() => {
-    if (tab === "next") {
+    if (tab === "next" && !hasDataRef.current) {
+      // Fetch immediately
       fetchCurrent();
+      
+      // Keep retrying for the first 5 seconds to catch playback that's starting
+      let retryCount = 0;
+      const maxRetries = 10;
+      const retryInterval = setInterval(() => {
+        // Stop if we have data or hit max retries
+        if (hasDataRef.current || retryCount >= maxRetries) {
+          clearInterval(retryInterval);
+          return;
+        }
+        
+        retryCount++;
+        fetchCurrent();
+      }, 500);
+      
+      return () => {
+        clearInterval(retryInterval);
+      };
     }
-  }, []);
+  }, []); // Remove current from dependencies!
 
   useEffect(() => {
     if (tab === "next") fetchCurrent();
     if (tab === "library") fetchLibrary();
     if (tab === "browse") setTab("library");
+    
+    // Auto-refresh Next tab every 5 seconds to keep device info updated
+    if (tab === "next") {
+      const refreshInterval = setInterval(() => {
+        fetchCurrent();
+      }, 5000);
+      
+      return () => clearInterval(refreshInterval);
+    }
   }, [tab]);
 
   async function fetchCurrent() {
@@ -38,6 +80,7 @@ export default function SpotifySection() {
     setError("");
     try {
       const res = await fetch("/api/spotify/current");
+      
       if (res.status === 204) {
         setCurrent(null);
         setLoading(false);
@@ -46,6 +89,7 @@ export default function SpotifySection() {
       if (!res.ok) throw new Error((await res.json()).error || res.statusText);
       const json = await res.json();
       setCurrent(json);
+      hasDataRef.current = true;
     } catch (err) {
       setError(err.message || "Failed to get current playback");
     } finally {
@@ -142,6 +186,44 @@ export default function SpotifySection() {
     }
   }
 
+  async function handleSeek(positionMs) {
+    try {
+      console.log("🎯 Attempting to seek to:", positionMs, "ms");
+      
+      const res = await fetch("/api/spotify/seek", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ position_ms: positionMs }),
+      });
+      
+      console.log("📡 Seek response status:", res.status);
+      
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        console.error("❌ Seek failed:", res.status, errorData);
+        throw new Error(errorData.error || "Failed to seek");
+      }
+      
+      console.log("✅ Seek successful");
+      
+      // Optimistically update the progress bar
+      if (current) {
+        setCurrent({
+          ...current,
+          progress_ms: positionMs,
+        });
+      }
+      
+      // Refresh after a moment to get accurate state
+      setTimeout(() => fetchCurrent(), 500);
+    } catch (err) {
+      console.error("❌ Seek error:", err);
+      setError(err.message || "Failed to seek");
+      // Revert optimistic update on error
+      setTimeout(() => fetchCurrent(), 100);
+    }
+  }
+
   async function doSearch(e) {
     e && e.preventDefault();
     if (!query) return;
@@ -159,25 +241,37 @@ export default function SpotifySection() {
     }
   }
 
-  async function playUri(uri, contextUri = null) {
+  async function playUri(uri, contextUri = null, position = null) {
     setLoading(true);
     setError("");
     try {
       const body = { uri };
       if (contextUri) body.context_uri = contextUri;
+      if (position !== null) body.position = position;
       
       const res = await fetch("/api/spotify/play", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      if (!res.ok) throw new Error((await res.json()).error || res.statusText);
       
-      // Auto-refresh current playback after playing
+      if (!res.ok) {
+        let errorMsg = "Failed to play";
+        try {
+          const errorData = await res.json();
+          errorMsg = errorData.error || errorData.message || res.statusText;
+        } catch (e) {
+          errorMsg = res.statusText || "Failed to play";
+        }
+        throw new Error(errorMsg);
+      }
+      
+      // Refresh Next tab to show updated device info
       setTimeout(() => {
         if (tab === "next") fetchCurrent();
       }, 1000);
     } catch (err) {
+      console.error("playUri error:", err);
       setError(err.message || "Failed to play");
     } finally {
       setLoading(false);
@@ -223,7 +317,15 @@ export default function SpotifySection() {
         )}
         <div className={styles.actions}>
           <button 
-            onClick={() => playUri(track.uri, contextUri)} 
+            onClick={() => {
+              if (contextUri && index !== null) {
+                // Playing from a playlist - use context with position
+                playUri(track.uri, contextUri, index);
+              } else {
+                // Playing individual track (liked songs, search results)
+                playUri(track.uri, null, null);
+              }
+            }}
             className={styles.playBtn}
           >
             ▶
@@ -328,43 +430,98 @@ export default function SpotifySection() {
               </button>
             </div>
 
-            {loading && <div className={styles.note}>Loading current playback…</div>}
-            {!loading && current && current.item && (
-              <div className={styles.nowPlaying}>
-                <div className={styles.recordContainer}>
-                  <div className={`${styles.record} ${current.is_playing ? styles.spinning : ''}`}>
-                    {current.item.album?.images?.[0]?.url && (
-                      <img 
-                        src={current.item.album.images[0].url} 
-                        alt={current.item.name}
-                        className={styles.recordImage} 
-                      />
-                    )}
-                    <div className={styles.recordCenter}></div>
+            {loading && !current && <div className={styles.note}>Loading current playback…</div>}
+            {current && current.item && (
+              <>
+                {current.device && current.device.name !== "VIBE Web Player" && (
+                  <div className={styles.otherDeviceAlert}>
+                    <div className={styles.alertIcon}>🎵</div>
+                    <div className={styles.alertContent}>
+                      <div className={styles.alertTitle}>Playing on Another Device</div>
+                      <div className={styles.alertMessage}>
+                        Music is playing on <strong>{current.device.name}</strong>
+                      </div>
+                      <div className={styles.alertSubtext}>
+                        Play/Pause controls this device. Click "Transfer to this device" below to switch playback here.
+                      </div>
+                    </div>
                   </div>
-                </div>
-                <div className={styles.trackInfo}>
-                  <div className={styles.trackName}>{current.item.name}</div>
-                  <div className={styles.artistName}>
-                    {(current.item.artists || []).map(a => a.name).join(", ")}
+                )}
+                
+                {current.device && current.device.name === "VIBE Web Player" && (
+                  <div className={styles.thisDeviceInfo}>
+                    <div className={styles.deviceIcon}>
+                      {current.device.type === 'Computer' && '💻'}
+                      {current.device.type === 'Smartphone' && '📱'}
+                      {current.device.type === 'Speaker' && '🔊'}
+                      {!['Computer', 'Smartphone', 'Speaker'].includes(current.device.type) && '🎵'}
+                    </div>
+                    <div className={styles.deviceText}>
+                      <div className={styles.deviceLabel}>Playing on this device</div>
+                      <div className={styles.deviceName}>{current.device.name}</div>
+                    </div>
                   </div>
-                  <div className={styles.progressBar}>
+                )}
+                
+                <div className={styles.nowPlaying}>
+                  <div className={styles.recordContainer}>
+                    <div className={`${styles.record} ${current.is_playing ? styles.spinning : ''}`}>
+                      {current.item.album?.images?.[0]?.url && (
+                        <img 
+                          src={current.item.album.images[0].url} 
+                          alt={current.item.name}
+                          className={styles.recordImage} 
+                        />
+                      )}
+                      <div className={styles.recordCenter}></div>
+                    </div>
+                  </div>
+                  <div className={styles.trackInfo}>
+                    <div className={styles.trackName}>{current.item.name}</div>
+                    <div className={styles.artistName}>
+                      {(current.item.artists || []).map(a => a.name).join(", ")}
+                    </div>
                     <div 
-                      className={styles.progressFill} 
-                      style={{ 
-                        width: `${(current.progress_ms / current.item.duration_ms) * 100}%` 
+                      className={styles.progressBar}
+                      onClick={(e) => {
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        const x = e.clientX - rect.left;
+                        const percentage = x / rect.width;
+                        const newPosition = Math.floor(percentage * current.item.duration_ms);
+                        handleSeek(newPosition);
                       }}
-                    ></div>
-                  </div>
-                  <div className={styles.timeDisplay}>
-                    {formatTime(current.progress_ms)} / {formatTime(current.item.duration_ms)}
+                      style={{ cursor: 'pointer' }}
+                    >
+                      <div 
+                        className={styles.progressFill} 
+                        style={{ 
+                          width: `${(current.progress_ms / current.item.duration_ms) * 100}%` 
+                        }}
+                      ></div>
+                    </div>
+                    <div className={styles.timeDisplay}>
+                      {formatTime(current.progress_ms)} / {formatTime(current.item.duration_ms)}
+                    </div>
                   </div>
                 </div>
-              </div>
+              </>
             )}
             {!loading && !current && (
-              <div className={styles.note}>
-                No active playback found. Start a device or play a track.
+              <div className={styles.loadingVinyl}>
+                <div className={styles.vinylSkeleton}>
+                  <div className={styles.skeletonRecord}>
+                    <div className={styles.skeletonImage}></div>
+                    <div className={styles.skeletonCenter}></div>
+                  </div>
+                </div>
+                <div className={styles.skeletonText}>
+                  <div className={styles.skeletonLine}></div>
+                  <div className={styles.skeletonLine} style={{ width: '60%' }}></div>
+                </div>
+                <div className={styles.loadingMessage}>
+                  <div className={styles.pulsingDot}></div>
+                  Connecting to playback...
+                </div>
               </div>
             )}
           </div>
