@@ -20,6 +20,66 @@ export default function SpotifySection() {
   const [selectedPlaylist, setSelectedPlaylist] = useState(null);
   const [playlistTracks, setPlaylistTracks] = useState([]);
   const hasDataRef = useRef(false); // Track if we've gotten data
+  const [interactiveMode, setInteractiveMode] = useState(false);
+  const audioAnalysisRef = useRef(null);
+
+  // Audio-reactive effect when interactive mode is on
+  useEffect(() => {
+    if (!interactiveMode) {
+      // Dispatch event to stop pulsing
+      window.dispatchEvent(new CustomEvent('stop-audio-reactive'));
+      return;
+    }
+    
+    if (!current?.is_playing) {
+      // Music paused - stop pulsing immediately
+      window.dispatchEvent(new CustomEvent('stop-audio-reactive'));
+      return;
+    }
+    
+    // Start audio-reactive mode immediately
+    const analyzeAudio = () => {
+      // Simulate audio intensity (in production, you'd use Web Audio API)
+      // For now, create a rhythmic pulse based on typical music tempo
+      const bpm = 120; // Assume 120 BPM
+      const interval = (60 / bpm) * 1000; // ms per beat
+      
+      let beatCount = 0;
+      
+      // Send first beat immediately to start synced
+      window.dispatchEvent(new CustomEvent('audio-pulse', {
+        detail: { intensity: 0.8 }
+      }));
+      
+      const beatInterval = setInterval(() => {
+        beatCount++;
+        
+        // Vary intensity (simulate drops, buildups, etc.)
+        let intensity = 0.5 + Math.sin(beatCount * 0.1) * 0.3;
+        
+        // Extra pulse on every 4th beat (downbeat)
+        if (beatCount % 4 === 0) {
+          intensity = 0.9;
+        }
+        
+        // Dispatch event with intensity data
+        window.dispatchEvent(new CustomEvent('audio-pulse', {
+          detail: { intensity }
+        }));
+      }, interval);
+      
+      audioAnalysisRef.current = beatInterval;
+    };
+    
+    analyzeAudio();
+    
+    return () => {
+      if (audioAnalysisRef.current) {
+        clearInterval(audioAnalysisRef.current);
+      }
+      window.dispatchEvent(new CustomEvent('stop-audio-reactive'));
+    };
+  }, [interactiveMode, current?.is_playing]); // React to playback changes immediately
 
   // Listen for device changes from SpotifyPlayer
   useEffect(() => {
@@ -427,6 +487,14 @@ export default function SpotifySection() {
               </button>
               <button onClick={fetchCurrent} className={styles.controlBtn} disabled={loading}>
                 Refresh
+              </button>
+              <button 
+                onClick={() => setInteractiveMode(!interactiveMode)} 
+                className={`${styles.controlBtn} ${interactiveMode ? styles.interactiveActive : ''}`}
+                disabled={!current?.is_playing}
+                title={current?.is_playing ? "Sync background with music" : "Play music to enable"}
+              >
+                {interactiveMode ? "🎵 Interactive ON" : "✨ Interactive Mode"}
               </button>
             </div>
 

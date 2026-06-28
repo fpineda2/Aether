@@ -82,6 +82,22 @@
   cursor: not-allowed;
 }
 
+.interactiveActive {
+  background: linear-gradient(135deg, rgba(147, 51, 234, 0.6), rgba(168, 85, 247, 0.6)) !important;
+  border: 1px solid #9333ea;
+  box-shadow: 0 0 20px rgba(147, 51, 234, 0.5);
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(147, 51, 234, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(147, 51, 234, 0.8), 0 0 40px rgba(168, 85, 247, 0.6);
+  }
+}
+
 /* Other Device Info - Informational Purple */
 .otherDeviceAlert {
   background: linear-gradient(135deg, rgba(147, 51, 234, 0.2) 0%, rgba(168, 85, 247, 0.15) 100%);
