@@ -7,8 +7,22 @@ export default async function handler(req, res) {
   const code = req.query.code;
   if (!code) return res.status(400).send("Missing code");
 
+  // CSRF protection: the nonce embedded in `state` must match the cookie set at /login.
+  const reqCookies = cookie.parse(req.headers.cookie || "");
+  const expectedNonce = reqCookies.spotify_auth_nonce;
+  let stateNonce;
+  try {
+    if (req.query.state) {
+      const payload = JSON.parse(Buffer.from(req.query.state, "base64url").toString("utf8"));
+      stateNonce = payload && payload.n;
+    }
+  } catch (e) {}
+  if (!expectedNonce || !stateNonce || expectedNonce !== stateNonce) {
+    return res.status(403).send("Invalid OAuth state");
+  }
+
   const redirectUri =
-    process.env.SPOTIFY_REDIRECT_URI || `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/api/auth/callback`;
+    process.env.SPOTIFY_REDIRECT_URI || `${process.env.NEXT_PUBLIC_BASE_URL || "http://127.0.0.1:3000"}/api/auth/callback`;
 
   const body = new URLSearchParams({
     grant_type: "authorization_code",
@@ -48,6 +62,8 @@ export default async function handler(req, res) {
     }),
     cookie.serialize("spotify_expires_at", String(expiresAt), { ...cookieOpts, maxAge: tokens.expires_in }),
     cookie.serialize("spotify_scope", tokens.scope || "", { ...cookieOpts, maxAge: tokens.expires_in }),
+    // Clear the single-use CSRF nonce now that it has been validated.
+    cookie.serialize("spotify_auth_nonce", "", { ...cookieOpts, maxAge: 0 }),
   ];
 
   res.setHeader("Set-Cookie", cookiesToSet);

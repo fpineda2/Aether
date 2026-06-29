@@ -53,5 +53,6 @@ export default async function handler(req, res) {
   }
 
   res.setHeader("Set-Cookie", cookiesToSet);
-  return res.status(200).json({ ok: true });
+  // Return the token in the body so internal callers (e.g. /api/auth/token) can read it.
+  return res.status(200).json({ ok: true, access_token: tokens.access_token, expires_at: expiresAt });
 }

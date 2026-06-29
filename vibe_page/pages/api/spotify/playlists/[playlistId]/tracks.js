@@ -13,7 +13,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Playlist ID is required' });
     }
     
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || `http://localhost:${process.env.PORT || 3000}`;
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || `http://127.0.0.1:${process.env.PORT || 3000}`;
     const tokenRes = await fetch(`${baseUrl}/api/auth/token`, {
       headers: {
         cookie: req.headers.cookie || '',
