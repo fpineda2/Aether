@@ -35,6 +35,9 @@ export function createAudioReactiveController(audioEl, { onError } = {}) {
     const data = new Uint8Array(analyser.frequencyBinCount);
     analyser.getByteFrequencyData(data);
 
+    // Publish the full spectrum so the web renderer can react per-node
+    window.__audioFreq = data;
+
     // Low band (kick/bass) drives the "beat". Skip bin 0 (DC offset).
     let bass = 0;
     const bassBins = 24;

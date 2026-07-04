@@ -1,12 +1,10 @@
 "use client";
 // components/InteractiveMode.jsx
-// Self-contained interactive visualizer. Lives independently of the Spotify
-// panel because it reacts to a LOCAL audio track, not Spotify playback.
-// Drop <InteractiveMode /> anywhere (e.g. the sidebar) and it manages its own state.
+// Self-contained interactive visualizer. Reacts to a LOCAL audio track (not
+// Spotify playback), which is why it lives outside the Spotify panel.
 
 import { useState } from "react";
 import AudioReactiveController from "./AudioReactiveController";
-import CircularSpectrum from "./CircularSpectrum"; // uncomment once CircularSpectrum.jsx is added
 
 export default function InteractiveMode() {
   const [active, setActive] = useState(false);
@@ -23,14 +21,12 @@ export default function InteractiveMode() {
 
       <button
         onClick={() => setActive((a) => !a)}
-        title="Beat-reactive starfield (visualizes a local track)"
+        title="Beat-reactive spiderweb (visualizes a local track)"
         style={{
           padding: "8px 16px",
           borderRadius: 12,
           border: "1px solid rgba(255,255,255,0.15)",
-          background: active
-            ? "rgba(168,85,247,0.35)"
-            : "rgba(59,130,246,0.22)",
+          background: active ? "rgba(168,85,247,0.35)" : "rgba(59,130,246,0.22)",
           color: "#fff",
           cursor: "pointer",
           fontSize: 14,
@@ -40,11 +36,7 @@ export default function InteractiveMode() {
         {active ? "🎵 Interactive ON" : "✨ Interactive Mode"}
       </button>
 
-      {/* Controls (play / choose track) appear here when active */}
       <AudioReactiveController active={active} />
-
-      {/* When you add the spectrum, drop it here:
-      <CircularSpectrum /> */}
     </div>
   );
 }

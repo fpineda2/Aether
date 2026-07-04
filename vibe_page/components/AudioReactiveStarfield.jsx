@@ -1,14 +1,12 @@
 // AudioReactiveStarfield.jsx
-// Theatrical, light-show-style renderer. Takes over the starfield + spiderweb
-// canvases while interactive mode is on and drives them from real audio energy:
-//  - additive "bloom" blending for an overexposed, glowing look
-//  - stars swell hard and halo on beats
-//  - color hue jumps on every beat
-//  - full-screen radial flash on hits
-//  - shockwave rings ripple outward on strong beats
+// The spiderweb IS the visualizer: each web node ("star"/dot) reacts to a
+// frequency band like a spectrum bar, the connecting strings pulse in reaction
+// to the dots they link, and the whole web breathes outward together on the beat.
 //
-// Consumes the globals published by app/layout.js: window.__starsData / __webData,
-// and canvases with ids "starfield-bg" / "spiderweb-bg".
+// Consumes globals published elsewhere:
+//   window.__starsData / __webData  (from app/layout.js)
+//   window.__audioFreq              (live FFT array, from lib/audioReactive.js)
+// Canvas ids: "starfield-bg" / "spiderweb-bg".
 
 "use client";
 
@@ -16,157 +14,138 @@ import { useEffect } from "react";
 
 export default function AudioReactiveStarfield() {
   useEffect(() => {
-    let intensity = 0; // smoothed sustained energy, 0..1
-    let flash = 0; // screen-flash amount, spikes on beats
-    let hue = 120; // recomputed each frame from colorEnergy (green=calm → red=loud)
-    let colorEnergy = 0; // 0..1, jumps to a beat's loudness, eases back to calm
-    let rings = []; // expanding shockwaves
+    let intensity = 0; // smoothed sustained energy
+    let flash = 0; // global beat pulse (whole web breathes together)
+    let hue = 120; // green (calm) -> red (loud), from colorEnergy
+    let colorEnergy = 0;
     let animationFrame = null;
-
-    const spawnRing = (strength) => {
-      const e = Math.min(1, Math.max(0, colorEnergy));
-      rings.push({
-        x: 0.5 + (Math.random() - 0.5) * 0.3,
-        y: 0.5 + (Math.random() - 0.5) * 0.3,
-        r: 0,
-        life: 1,
-        strength,
-        hue: 200 * (1 - e), // ring keeps the color of the beat that spawned it
-      });
-      if (rings.length > 14) rings.shift();
-    };
 
     const pulseEffects = () => {
       const starCanvas = document.getElementById("starfield-bg");
       const webCanvas = document.getElementById("spiderweb-bg");
 
-      // Map current musical energy to color for this frame:
-      // calm (0) -> green (140), loud (1) -> red (0).
       const e = Math.min(1, Math.max(0, colorEnergy));
       hue = 140 * (1 - e);
 
-      // ---- STARS: swell + bloom, additive ----
+      const freq = window.__audioFreq; // Uint8Array | undefined
+
+      // ---- BACKGROUND STARS: gentle twinkle + swell (kept calm) ----
       if (starCanvas && window.__starsData) {
         const sc = starCanvas.getContext("2d");
         const W = starCanvas.width;
         const H = starCanvas.height;
         const stars = window.__starsData;
-
         sc.clearRect(0, 0, W, H);
         sc.globalCompositeOperation = "lighter";
-
         for (const st of stars) {
           st.a += st.s;
           const twinkle = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(st.a));
-          const swell = 1 + intensity * 2.4 + flash * 1.6;
+          const swell = 1 + intensity * 1.6 + flash * 1.2;
           const size = st.r * swell;
-          const alpha = Math.min(
-            1,
-            twinkle * (0.4 + intensity * 0.9 + flash * 0.7)
-          );
-
-          // core
+          const alpha = Math.min(1, twinkle * (0.4 + intensity * 0.7 + flash * 0.5));
           sc.beginPath();
           sc.arc(st.x, st.y, size, 0, Math.PI * 2);
-          sc.fillStyle = `hsla(${hue}, 100%, 78%, ${alpha})`;
+          sc.fillStyle = `hsla(${hue}, 100%, 80%, ${alpha})`;
           sc.fill();
-
-          // bloom halo when there's energy
-          const energy = intensity + flash;
-          if (energy > 0.25) {
-            sc.beginPath();
-            sc.arc(st.x, st.y, size * 3.4, 0, Math.PI * 2);
-            sc.fillStyle = `hsla(${hue}, 100%, 68%, ${0.09 * energy})`;
-            sc.fill();
-          }
         }
         sc.globalCompositeOperation = "source-over";
       }
 
-      // ---- WEB + FLASH + RINGS ----
+      // ---- SPIDERWEB: nodes = spectrum, strings pulse with them ----
       if (webCanvas && window.__webData) {
         const ctx = webCanvas.getContext("2d");
         const { width, height, particles, mouse } = window.__webData;
-
         ctx.clearRect(0, 0, width, height);
 
-        // full-screen beat flash (radial, additive)
+        const cx = width / 2;
+        const cy = height / 2;
+        const n = particles.length;
+
+        // subtle full-screen beat pulse — the whole web brightens as one
         if (flash > 0.01) {
           ctx.globalCompositeOperation = "lighter";
-          const maxR = Math.max(width, height) * 0.8;
           const g = ctx.createRadialGradient(
-            width / 2,
-            height / 2,
-            0,
-            width / 2,
-            height / 2,
-            maxR
+            cx, cy, 0, cx, cy, Math.max(width, height) * 0.8
           );
-          g.addColorStop(0, `hsla(${hue}, 100%, 66%, ${0.24 * flash})`);
+          g.addColorStop(0, `hsla(${hue}, 100%, 62%, ${0.14 * flash})`);
           g.addColorStop(1, `hsla(${hue}, 100%, 50%, 0)`);
           ctx.fillStyle = g;
           ctx.fillRect(0, 0, width, height);
           ctx.globalCompositeOperation = "source-over";
         }
 
-        // shockwave rings
-        ctx.globalCompositeOperation = "lighter";
-        rings = rings.filter((r) => r.life > 0.03);
-        for (const r of rings) {
-          const rad = r.r * Math.max(width, height);
-          ctx.beginPath();
-          ctx.arc(width * r.x, height * r.y, rad, 0, Math.PI * 2);
-          ctx.lineWidth = 1.5 + 5 * r.life * r.strength;
-          ctx.strokeStyle = `hsla(${r.hue}, 100%, 72%, ${0.5 * r.life})`;
-          ctx.stroke();
-          r.r += 0.018 + 0.03 * r.strength;
-          r.life *= 0.94;
-        }
+        // Per-node amplitude from its frequency band, and a display position
+        // pushed outward by (its own band) + (the global beat) = unison pulse.
+        const PER = 16; // how far a node bounces on its own frequency
+        const GLOBAL = 46; // how far the whole web expands together on a beat
+        const binLo = 2, binHi = 170; // musical slice of the spectrum
+        const pts = new Array(n);
 
-        // web particles + lines (additive, hue-shifted, energy-scaled)
-        const light = 60 + intensity * 25 + flash * 15;
-        ctx.lineWidth = 0.6 + intensity * 2.4 + flash * 2;
-
-        particles.forEach((p) => {
+        for (let i = 0; i < n; i++) {
+          const p = particles[i];
           p.x += p.vx;
           p.y += p.vy;
           if (p.x < 0 || p.x > width) p.vx *= -1;
           if (p.y < 0 || p.y > height) p.vy *= -1;
 
-          const ps = 1.6 + intensity * 2.6 + flash * 2;
-          ctx.beginPath();
-          ctx.arc(p.x, p.y, ps, 0, Math.PI * 2);
-          ctx.fillStyle = `hsla(${hue}, 100%, ${light}%, 0.85)`;
-          ctx.fill();
+          let a;
+          if (freq && freq.length) {
+            const bin = binLo + Math.floor((i / n) * (binHi - binLo));
+            a = freq[bin] / 255;
+          } else {
+            a = intensity; // fallback before any spectrum data exists
+          }
 
-          if (mouse.x != null && mouse.y != null) {
-            const dx = p.x - mouse.x;
-            const dy = p.y - mouse.y;
+          let dx = p.x - cx;
+          let dy = p.y - cy;
+          const d = Math.hypot(dx, dy) || 1;
+          const push = a * PER + flash * GLOBAL;
+          pts[i] = { x: p.x + (dx / d) * push, y: p.y + (dy / d) * push, a };
+        }
+
+        ctx.globalCompositeOperation = "lighter";
+        const light = 60 + intensity * 22 + flash * 16;
+
+        // strings first — brightness/thickness driven by the two nodes they link
+        for (let i = 0; i < n; i++) {
+          for (let j = i + 1; j < n; j++) {
+            const dx = pts[i].x - pts[j].x;
+            const dy = pts[i].y - pts[j].y;
             const dist = Math.hypot(dx, dy);
             if (dist < 150) {
+              const pair = (pts[i].a + pts[j].a) * 0.5;
+              const alpha = (1 - dist / 150) * (0.18 + pair * 0.7 + flash * 0.3);
+              ctx.strokeStyle = `hsla(${hue}, 100%, ${light}%, ${alpha})`;
+              ctx.lineWidth = 0.5 + pair * 2.2 + flash * 1.5;
               ctx.beginPath();
-              ctx.moveTo(p.x, p.y);
-              ctx.lineTo(mouse.x, mouse.y);
-              ctx.strokeStyle = `hsla(${hue}, 100%, ${light}%, ${
-                (1 - dist / 150) * (0.4 + intensity * 0.6)
-              })`;
+              ctx.moveTo(pts[i].x, pts[i].y);
+              ctx.lineTo(pts[j].x, pts[j].y);
               ctx.stroke();
             }
           }
-        });
+        }
 
-        for (let i = 0; i < particles.length; i++) {
-          for (let j = i + 1; j < particles.length; j++) {
-            const dx = particles[i].x - particles[j].x;
-            const dy = particles[i].y - particles[j].y;
-            const dist = Math.hypot(dx, dy);
-            if (dist < 150) {
-              ctx.beginPath();
-              ctx.moveTo(particles[i].x, particles[i].y);
-              ctx.lineTo(particles[j].x, particles[j].y);
+        // nodes on top — each one a little spectrum bar rendered as a dot
+        for (let i = 0; i < n; i++) {
+          const a = pts[i].a;
+          const ps = 1.4 + a * 5.5 + flash * 2;
+          ctx.beginPath();
+          ctx.arc(pts[i].x, pts[i].y, ps, 0, Math.PI * 2);
+          ctx.fillStyle = `hsla(${hue}, 100%, ${62 + a * 25}%, ${0.5 + a * 0.5})`;
+          ctx.fill();
+
+          if (mouse.x != null && mouse.y != null) {
+            const mdx = pts[i].x - mouse.x;
+            const mdy = pts[i].y - mouse.y;
+            const md = Math.hypot(mdx, mdy);
+            if (md < 150) {
               ctx.strokeStyle = `hsla(${hue}, 100%, ${light}%, ${
-                (1 - dist / 150) * (0.35 + intensity * 0.5 + flash * 0.35)
+                (1 - md / 150) * (0.22 + a * 0.5)
               })`;
+              ctx.lineWidth = 0.6 + a * 1.5;
+              ctx.beginPath();
+              ctx.moveTo(pts[i].x, pts[i].y);
+              ctx.lineTo(mouse.x, mouse.y);
               ctx.stroke();
             }
           }
@@ -174,11 +153,9 @@ export default function AudioReactiveStarfield() {
         ctx.globalCompositeOperation = "source-over";
       }
 
-      // decays — snappy attack, quick fade for distinct pulses
+      // decays
       intensity *= 0.9;
       flash *= 0.86;
-
-      // color eases back toward calm (green) between loud beats
       colorEnergy *= 0.96;
 
       animationFrame = requestAnimationFrame(pulseEffects);
@@ -188,22 +165,14 @@ export default function AudioReactiveStarfield() {
       const d = event.detail || {};
       const inc = typeof d.intensity === "number" ? d.intensity : 0;
       const beat = !!d.beat;
-
       window.__audioReactiveActive = true;
 
       if (beat) {
-        const strength =
-          typeof d.beatStrength === "number" ? d.beatStrength : 0.4;
+        const strength = typeof d.beatStrength === "number" ? d.beatStrength : 0.4;
         const level = typeof d.bassLevel === "number" ? d.bassLevel : inc;
-        // snap up on the hit
         intensity = Math.max(intensity, Math.max(0.85, inc));
         flash = Math.min(1.2, flash + 0.9);
-        // louder hit -> toward red; softer hit -> stays green
-        colorEnergy = Math.max(
-          colorEnergy,
-          Math.min(1, level * 0.85 + strength * 0.5)
-        );
-        spawnRing(0.6 + strength);
+        colorEnergy = Math.max(colorEnergy, Math.min(1, level * 0.85 + strength * 0.5));
       } else {
         intensity += (inc - intensity) * 0.35;
       }
@@ -211,7 +180,7 @@ export default function AudioReactiveStarfield() {
       if (!animationFrame) pulseEffects();
     };
 
-    const handleStopAudioReactive = () => {
+    const handleStop = () => {
       window.__audioReactiveActive = false;
       if (animationFrame) {
         cancelAnimationFrame(animationFrame);
@@ -219,15 +188,14 @@ export default function AudioReactiveStarfield() {
       }
       intensity = 0;
       flash = 0;
-      rings = [];
+      colorEnergy = 0;
     };
 
     window.addEventListener("audio-pulse", handleAudioPulse);
-    window.addEventListener("stop-audio-reactive", handleStopAudioReactive);
-
+    window.addEventListener("stop-audio-reactive", handleStop);
     return () => {
       window.removeEventListener("audio-pulse", handleAudioPulse);
-      window.removeEventListener("stop-audio-reactive", handleStopAudioReactive);
+      window.removeEventListener("stop-audio-reactive", handleStop);
       if (animationFrame) cancelAnimationFrame(animationFrame);
       window.__audioReactiveActive = false;
     };
