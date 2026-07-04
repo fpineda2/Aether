@@ -46,6 +46,9 @@ export default function RootLayout({ children }) {
         a: Math.random() * Math.PI * 2, // phase
         s: Math.random() * 0.015 + 0.007, // twinkle speed
       }))
+    
+      // Publish star data so AudioReactiveStarfield's pulse renderer can draw it
+    window.__starsData = starsRef.current
 
     function drawStars() {
       // Only draw if AudioReactiveStarfield isn't controlling it
@@ -155,7 +158,8 @@ export default function RootLayout({ children }) {
       
       // Always update webData for AudioReactiveStarfield
       webState.current = { width, height, particles, mouse, hue } //Produced by layout and child reads it (DOWN)
-      
+      window.__webData = webState.current
+
       requestAnimationFrame(drawWeb)
     }
 
