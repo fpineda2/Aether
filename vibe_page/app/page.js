@@ -1,6 +1,7 @@
 import SpaceChains from "../components/SpaceChains"
 import BootWrapper from '../components/BootWrapper';
 import SpotifySection from "../components/SpotifySection";
+import InteractiveMode from "../components/InteractiveMode";
 import SpotifyPlayer from "../components/SpotifyPlayer"
 import styles from "../styles/Dashboard.module.css";
 
@@ -54,6 +55,10 @@ export default function Page() {
             <li><a href="#">Account</a></li>
             <li><a href="#">Privacy</a></li>
           </ul>
+
+          <div className="mt-6 pt-6 border-t border-white/10">
+            <InteractiveMode />
+          </div>
         </aside>
 
         {/* Feed Section */}

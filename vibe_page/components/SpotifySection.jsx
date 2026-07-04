@@ -5,7 +5,6 @@
 
 import { useEffect, useState, useRef } from "react";
 import styles from "./SpotifySection.module.css";
-import AudioReactiveController from "./AudioReactiveController";
 
 
 export default function SpotifySection() {
@@ -22,12 +21,7 @@ export default function SpotifySection() {
   const [selectedPlaylist, setSelectedPlaylist] = useState(null);
   const [playlistTracks, setPlaylistTracks] = useState([]);
   const hasDataRef = useRef(false); // Track if we've gotten data
-  const [interactiveMode, setInteractiveMode] = useState(false);
 
-  // Interactive mode's beat pulses now come from real Web Audio analysis,
-  // handled by <AudioReactiveController>. (Spotify's own stream is DRM-protected
-  // and can't be analyzed in-browser, so the visualizer reacts to a local track.)
-  
   // Listen for device changes from SpotifyPlayer
   useEffect(() => {
     const handleDeviceChange = () => {
@@ -435,16 +429,7 @@ export default function SpotifySection() {
               <button onClick={fetchCurrent} className={styles.controlBtn} disabled={loading}>
                 Refresh
               </button>
-              <button 
-                onClick={() => setInteractiveMode(!interactiveMode)} 
-                className={`${styles.controlBtn} ${interactiveMode ? styles.interactiveActive : ''}`}
-                title="Beat-reactive starfield (visualizes a local track)"
-              >
-                {interactiveMode ? "🎵 Interactive ON" : "✨ Interactive Mode"}
-              </button>
             </div>
-
-            <AudioReactiveController active={interactiveMode} />
 
             {loading && !current && <div className={styles.note}>Loading current playback…</div>}
             {current && current.item && (
