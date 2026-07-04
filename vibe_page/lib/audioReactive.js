@@ -14,6 +14,7 @@ export function createAudioReactiveController(audioEl, { onError } = {}) {
   let bassHistory = [];
   let lastBeat = 0;
   const HISTORY = 43; // ~0.7s of frames at 60fps, used as a rolling baseline
+  
 
   // Build the audio graph lazily, on first user gesture (browsers block
   // AudioContext until then). createMediaElementSource can only run once

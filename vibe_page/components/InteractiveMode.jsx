@@ -6,7 +6,7 @@
 
 import { useState } from "react";
 import AudioReactiveController from "./AudioReactiveController";
-// import CircularSpectrum from "./CircularSpectrum"; // uncomment once CircularSpectrum.jsx is added
+import CircularSpectrum from "./CircularSpectrum"; // uncomment once CircularSpectrum.jsx is added
 
 export default function InteractiveMode() {
   const [active, setActive] = useState(false);

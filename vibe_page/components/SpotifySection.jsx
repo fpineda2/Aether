@@ -5,6 +5,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import styles from "./SpotifySection.module.css";
+ import AudioReactiveController from "./AudioReactiveController";
 
 
 export default function SpotifySection() {
@@ -430,6 +431,7 @@ export default function SpotifySection() {
                 Refresh
               </button>
             </div>
+
 
             {loading && !current && <div className={styles.note}>Loading current playback…</div>}
             {current && current.item && (
