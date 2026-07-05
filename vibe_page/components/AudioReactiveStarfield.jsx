@@ -165,17 +165,24 @@ export default function AudioReactiveStarfield() {
       const d = event.detail || {};
       const inc = typeof d.intensity === "number" ? d.intensity : 0;
       const beat = !!d.beat;
+      const level = typeof d.bassLevel === "number" ? d.bassLevel : inc;
       window.__audioReactiveActive = true;
 
       if (beat) {
         const strength = typeof d.beatStrength === "number" ? d.beatStrength : 0.4;
-        const level = typeof d.bassLevel === "number" ? d.bassLevel : inc;
         intensity = Math.max(intensity, Math.max(0.85, inc));
         flash = Math.min(1.2, flash + 0.9);
-        colorEnergy = Math.max(colorEnergy, Math.min(1, level * 0.85 + strength * 0.5));
+        // Extra kick of color on top of the continuous tracking below, so a
+        // strong beat still pops harder than the ambient loudness alone.
+        colorEnergy = Math.min(1, colorEnergy + strength * 0.4);
       } else {
         intensity += (inc - intensity) * 0.35;
       }
+
+      // Continuously follow bass loudness every frame (not just on detected
+      // beat onsets, which are rare) so hue actually tracks intensity instead
+      // of decaying back to green between beats.
+      colorEnergy += (level - colorEnergy) * 0.12;
 
       if (!animationFrame) pulseEffects();
     };

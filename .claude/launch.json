@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "vibe_page-dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--prefix", "vibe_page"],
+      "port": 3000,
+      "autoPort": true
+    }
+  ]
+}

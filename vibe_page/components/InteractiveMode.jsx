@@ -9,6 +9,29 @@ import AudioReactiveController from "./AudioReactiveController";
 export default function InteractiveMode() {
   const [active, setActive] = useState(false);
 
+  async function pauseSpotify() {
+    try {
+      const res = await fetch("/api/spotify/control", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "pause" }),
+      });
+      if (res.ok || res.status === 204) {
+        window.dispatchEvent(new CustomEvent("spotify-device-changed"));
+      }
+    } catch (err) {
+      // No Spotify session / nothing playing — nothing to do.
+    }
+  }
+
+  function toggleActive() {
+    setActive((a) => {
+      const next = !a;
+      if (next) pauseSpotify();
+      return next;
+    });
+  }
+
   return (
     <div>
       <h2 className="font-[var(--font-heading)] italic text-2xl mb-2">
@@ -20,7 +43,7 @@ export default function InteractiveMode() {
       </p>
 
       <button
-        onClick={() => setActive((a) => !a)}
+        onClick={toggleActive}
         title="Beat-reactive spiderweb (visualizes a local track)"
         style={{
           padding: "8px 16px",
