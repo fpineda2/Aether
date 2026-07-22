@@ -2,6 +2,9 @@
 // components/SpotifyPlayer.jsx
 // Full Spotify Web Playback SDK component with working Play/Pause and styled buttons.
 // Uses server proxy endpoints for token checks and control (see README in repo for endpoints).
+//
+// "Skip to next" and "Refresh" live in SpotifySection, but are rendered here in the
+// bottom controls row (next to Play/Pause) via a ref exposed from that component.
 
 import React, { useEffect, useRef, useState } from "react";
 import styles from "./SpotifyPlayer.module.css";
@@ -9,6 +12,7 @@ import SpotifySection from "./SpotifySection";
 
 export default function SpotifyPlayer({ name = "VIBE Web Player" }) {
   const playerRef = useRef(null);
+  const spotifySectionRef = useRef(null);
   const [loading, setLoading] = useState(true);
   const [tokenLoading, setTokenLoading] = useState(false);
   const [error, setError] = useState("");
@@ -101,13 +105,13 @@ export default function SpotifyPlayer({ name = "VIBE Web Player" }) {
     return new Promise((resolve, reject) => {
       if (typeof window === "undefined") return reject(new Error("No window"));
       if (window.Spotify) return resolve();
-      
+
       // Define the global callback that Spotify SDK expects
       window.onSpotifyWebPlaybackSDKReady = () => {
         console.log("Spotify SDK ready callback fired");
         resolve();
       };
-      
+
       const id = "spotify-player-sdk";
       if (document.getElementById(id)) {
         const wait = setInterval(() => {
@@ -124,7 +128,7 @@ export default function SpotifyPlayer({ name = "VIBE Web Player" }) {
         }, 8000);
         return;
       }
-      
+
       const s = document.createElement("script");
       s.id = id;
       s.src = "https://sdk.scdn.co/spotify-player.js";
@@ -188,11 +192,11 @@ export default function SpotifyPlayer({ name = "VIBE Web Player" }) {
       console.info("Spotify Player ready with device id", device_id);
       setDeviceId(device_id);
       setLoading(false);
-      
+
       // Auto-transfer playback to this device to make it the active device
       try {
         const currentState = await fetch("/api/spotify/current", { cache: "no-store" });
-        
+
         // If there's no active playback anywhere (204) or playback exists but on another device
         if (currentState.status === 204) {
           console.info("No active playback detected - transferring to this device");
@@ -263,7 +267,7 @@ export default function SpotifyPlayer({ name = "VIBE Web Player" }) {
       const body = { action };
       // DON'T send device_id - let it control the currently active device
       // if (action === "play" && deviceId) body.device_id = deviceId;
-      
+
       const r = await fetch("/api/spotify/control", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -302,18 +306,18 @@ export default function SpotifyPlayer({ name = "VIBE Web Player" }) {
       if (!silent) setError("No device id provided for transfer");
       return false;
     }
-    
+
     setIsTransferring(true);
-    
+
     try {
       const r = await fetch("/api/spotify/transfer", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ device_id: targetDeviceId }),
       });
-      
+
       setIsTransferring(false);
-      
+
       if (r.status === 204) {
         await refreshPlaybackStateFromServer();
         setDeviceId(targetDeviceId);
@@ -345,9 +349,9 @@ export default function SpotifyPlayer({ name = "VIBE Web Player" }) {
 
   async function handlePlayPause() {
     if (isControlling) return;
-    
+
     setIsControlling(true);
-    
+
     try {
       if (isPlaying) {
         await sendControl("pause");
@@ -396,15 +400,15 @@ export default function SpotifyPlayer({ name = "VIBE Web Player" }) {
       </div>
 
       {error && (
-        <div className={styles.errorBox} style={{ 
+        <div className={styles.errorBox} style={{
           background: 'rgba(147, 51, 234, 0.15)',
           border: '2px solid #9333ea',
           borderRadius: '8px',
           padding: '16px',
           marginBottom: '16px'
         }}>
-          <div style={{ 
-            fontSize: '15px', 
+          <div style={{
+            fontSize: '15px',
             fontWeight: '600',
             color: '#a855f7',
             marginBottom: '8px'
@@ -412,8 +416,8 @@ export default function SpotifyPlayer({ name = "VIBE Web Player" }) {
             {error}
           </div>
           <div>
-            <button 
-              className={styles.auxBtn} 
+            <button
+              className={styles.auxBtn}
               onClick={() => setError("")}
               style={{
                 background: '#9333ea',
@@ -453,16 +457,25 @@ export default function SpotifyPlayer({ name = "VIBE Web Player" }) {
         <div>
           {/*<div className={styles.playbackArea}>{renderPlayback()}</div>*/}
           <div style={{ marginTop: 17 }}>
-            <SpotifySection />
+            <SpotifySection ref={spotifySectionRef} />
           </div>
 
           <div className={styles.controlsRow}>
+
             <button
               className={`${styles.controlBtn} ${isPlaying ? styles.negative : styles.positive}`}
               onClick={handlePlayPause}
               disabled={isTransferring || isControlling}
             >
               {isPlaying ? "Pause" : "Play"}
+            </button>
+            
+            <button
+              className={styles.secondaryBtn}
+              onClick={() => spotifySectionRef.current?.skipNext()}
+              disabled={isTransferring || isControlling}
+            >
+              Skip to next
             </button>
 
             {deviceId && playbackState?.device && playbackState.device.name !== "VIBE Web Player" && (
@@ -475,7 +488,7 @@ export default function SpotifyPlayer({ name = "VIBE Web Player" }) {
                     setError("Transfer succeeded — playback moved to this device.");
                     // Clear success message after 3 seconds
                     setTimeout(() => setError(""), 3000);
-                    
+
                     // Notify other components that device changed
                     window.dispatchEvent(new CustomEvent('spotify-device-changed'));
                   }
@@ -484,7 +497,7 @@ export default function SpotifyPlayer({ name = "VIBE Web Player" }) {
               >
                 {isTransferring ? "Transferring..." : "Transfer to this device"}
               </button>
-            )} 
+            )}
           </div>
         </div>
       )}

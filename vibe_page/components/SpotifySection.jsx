@@ -1,22 +1,26 @@
 "use client";
 // components/SpotifySection.jsx
-// Enhanced version with Next | Search | Library tabs
+// Enhanced version with Current | Search | Library tabs
 // Library now includes drill-down into playlists and better organization
+//
+// NOTE: skipNext() and fetchCurrent() are exposed to the parent (SpotifyPlayer)
+// via a ref, so "Skip to next" and "Refresh" can be rendered next to the
+// Play/Pause button instead of living in this component's own controls row.
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, forwardRef, useImperativeHandle } from "react";
 import styles from "./SpotifySection.module.css";
- import AudioReactiveController from "./AudioReactiveController";
+import AudioReactiveController from "./AudioReactiveController";
 
 
-export default function SpotifySection() {
-  const [tab, setTab] = useState("next"); // next | search | library
+const SpotifySection = forwardRef(function SpotifySection(props, ref) {
+  const [tab, setTab] = useState("current"); // current | search | library
   const [query, setQuery] = useState("");
   const [searchResults, setSearchResults] = useState(null);
   const [library, setLibrary] = useState(null);
   const [current, setCurrent] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  
+
   // New state for enhanced library
   const [libraryView, setLibraryView] = useState("playlists"); // playlists | albums | tracks
   const [selectedPlaylist, setSelectedPlaylist] = useState(null);
@@ -27,21 +31,21 @@ export default function SpotifySection() {
   useEffect(() => {
     const handleDeviceChange = () => {
       console.log("Device changed - refreshing playback state");
-      if (tab === "next") {
+      if (tab === "current") {
         setTimeout(() => fetchCurrent(), 500);
       }
     };
-    
+
     window.addEventListener('spotify-device-changed', handleDeviceChange);
     return () => window.removeEventListener('spotify-device-changed', handleDeviceChange);
   }, [tab]);
 
-  // Auto-fetch current playback on mount if starting on Next tab
+  // Auto-fetch current playback on mount if starting on Current tab
   useEffect(() => {
-    if (tab === "next" && !hasDataRef.current) {
+    if (tab === "current" && !hasDataRef.current) {
       // Fetch immediately
       fetchCurrent();
-      
+
       // Keep retrying for the first 5 seconds to catch playback that's starting
       let retryCount = 0;
       const maxRetries = 10;
@@ -51,11 +55,11 @@ export default function SpotifySection() {
           clearInterval(retryInterval);
           return;
         }
-        
+
         retryCount++;
         fetchCurrent();
       }, 500);
-      
+
       return () => {
         clearInterval(retryInterval);
       };
@@ -63,16 +67,16 @@ export default function SpotifySection() {
   }, []); // Remove current from dependencies!
 
   useEffect(() => {
-    if (tab === "next") fetchCurrent();
+    if (tab === "current") fetchCurrent();
     if (tab === "library") fetchLibrary();
     if (tab === "browse") setTab("library");
-    
-    // Auto-refresh Next tab every 5 seconds to keep device info updated
-    if (tab === "next") {
+
+    // Auto-refresh Current tab every 5 seconds to keep device info updated
+    if (tab === "current") {
       const refreshInterval = setInterval(() => {
         fetchCurrent();
       }, 5000);
-      
+
       return () => clearInterval(refreshInterval);
     }
   }, [tab]);
@@ -82,7 +86,7 @@ export default function SpotifySection() {
     setError("");
     try {
       const res = await fetch("/api/spotify/current");
-      
+
       if (res.status === 204) {
         setCurrent(null);
         setLoading(false);
@@ -104,20 +108,20 @@ export default function SpotifySection() {
     setError("");
     try {
       const res = await fetch("/api/spotify/library", { cache: "no-store" });
-      
+
       if (res.status === 401) {
         setError("Not authorized. Please reconnect Spotify to view your library.");
         setLibrary(null);
         setLoading(false);
         return;
       }
-      
+
       if (!res.ok) {
         const text = await res.text();
         console.error("Library fetch failed:", res.status, text);
         throw new Error("Failed to load library");
       }
-      
+
       // Check if response is actually JSON
       const contentType = res.headers.get("content-type");
       if (!contentType || !contentType.includes("application/json")) {
@@ -125,9 +129,9 @@ export default function SpotifySection() {
         console.error("Library response is not JSON:", text);
         throw new Error("Server returned invalid response. Check your API endpoint.");
       }
-      
+
       const json = await res.json();
-      
+
       // Debug logging
       console.log("📦 Library data received:", {
         hasSavedTracks: !!json.savedTracks,
@@ -135,7 +139,7 @@ export default function SpotifySection() {
         itemsLength: json.savedTracks?.items?.length,
         firstItem: json.savedTracks?.items?.[0],
       });
-      
+
       setLibrary(json);
     } catch (err) {
       console.error("fetchLibrary error:", err);
@@ -149,21 +153,21 @@ export default function SpotifySection() {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch(`/api/spotify/playlists/${playlistId}/tracks`, { 
-        cache: "no-store" 
+      const res = await fetch(`/api/spotify/playlists/${playlistId}/tracks`, {
+        cache: "no-store"
       });
       if (!res.ok) {
         const text = await res.text();
         console.error("Playlist tracks fetch failed:", text);
         throw new Error("Failed to load playlist tracks");
       }
-      
+
       const contentType = res.headers.get("content-type");
       if (!contentType || !contentType.includes("application/json")) {
         console.error("Response is not JSON:", await res.text());
         throw new Error("Server returned invalid response");
       }
-      
+
       const data = await res.json();
       setPlaylistTracks(data.items || []);
     } catch (err) {
@@ -191,23 +195,23 @@ export default function SpotifySection() {
   async function handleSeek(positionMs) {
     try {
       console.log("🎯 Attempting to seek to:", positionMs, "ms");
-      
+
       const res = await fetch("/api/spotify/seek", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ position_ms: positionMs }),
       });
-      
+
       console.log("📡 Seek response status:", res.status);
-      
+
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
         console.error("❌ Seek failed:", res.status, errorData);
         throw new Error(errorData.error || "Failed to seek");
       }
-      
+
       console.log("✅ Seek successful");
-      
+
       // Optimistically update the progress bar
       if (current) {
         setCurrent({
@@ -215,7 +219,7 @@ export default function SpotifySection() {
           progress_ms: positionMs,
         });
       }
-      
+
       // Refresh after a moment to get accurate state
       setTimeout(() => fetchCurrent(), 500);
     } catch (err) {
@@ -250,13 +254,13 @@ export default function SpotifySection() {
       const body = { uri };
       if (contextUri) body.context_uri = contextUri;
       if (position !== null) body.position = position;
-      
+
       const res = await fetch("/api/spotify/play", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      
+
       if (!res.ok) {
         let errorMsg = "Failed to play";
         try {
@@ -267,10 +271,10 @@ export default function SpotifySection() {
         }
         throw new Error(errorMsg);
       }
-      
-      // Refresh Next tab to show updated device info
+
+      // Refresh Current tab to show updated device info
       setTimeout(() => {
-        if (tab === "next") fetchCurrent();
+        if (tab === "current") fetchCurrent();
       }, 1000);
     } catch (err) {
       console.error("playUri error:", err);
@@ -303,6 +307,13 @@ export default function SpotifySection() {
     return `${minutes}:${seconds.toString().padStart(2, "0")}`;
   }
 
+  // Expose skipNext/refresh to the parent (SpotifyPlayer) so those controls
+  // can render next to the Play/Pause button instead of up here.
+  useImperativeHandle(ref, () => ({
+    skipNext,
+    refresh: fetchCurrent,
+  }));
+
   function renderTrackItem(track, index = null, contextUri = null) {
     const artists = (track.artists || []).map((a) => a.name).join(", ");
     const image = track.album?.images?.[0]?.url;
@@ -318,7 +329,7 @@ export default function SpotifySection() {
           <div className={styles.duration}>{formatDuration(track.duration_ms)}</div>
         )}
         <div className={styles.actions}>
-          <button 
+          <button
             onClick={() => {
               if (contextUri && index !== null) {
                 // Playing from a playlist - use context with position
@@ -339,8 +350,8 @@ export default function SpotifySection() {
 
   function renderPlaylistCard(playlist) {
     return (
-      <div 
-        key={playlist.id} 
+      <div
+        key={playlist.id}
         className={styles.playlistCard}
         onClick={() => handlePlaylistClick(playlist)}
       >
@@ -395,22 +406,22 @@ export default function SpotifySection() {
   return (
     <section className={styles.container} aria-label="Spotify section">
       <div className={styles.header}>
-        <h3>Spotify</h3>
+  
         <div className={styles.tabs}>
-          <button 
-            className={`${styles.tab} ${tab === "next" ? styles.active : ""}`} 
-            onClick={() => setTab("next")}
+          <button
+            className={`${styles.tab} ${tab === "current" ? styles.active : ""}`}
+            onClick={() => setTab("current")}
           >
-            Next
+            Current
           </button>
-          <button 
-            className={`${styles.tab} ${tab === "search" ? styles.active : ""}`} 
+          <button
+            className={`${styles.tab} ${tab === "search" ? styles.active : ""}`}
             onClick={() => setTab("search")}
           >
             Search
           </button>
-          <button 
-            className={`${styles.tab} ${tab === "library" ? styles.active : ""}`} 
+          <button
+            className={`${styles.tab} ${tab === "library" ? styles.active : ""}`}
             onClick={() => setTab("library")}
           >
             Library
@@ -421,18 +432,8 @@ export default function SpotifySection() {
       <div className={styles.body}>
         {error && <div className={styles.error}>{error}</div>}
 
-        {tab === "next" && (
+        {tab === "current" && (
           <div>
-            <div className={styles.controls}>
-              <button onClick={skipNext} className={styles.controlBtn} disabled={loading}>
-                Skip to next
-              </button>
-              <button onClick={fetchCurrent} className={styles.controlBtn} disabled={loading}>
-                Refresh
-              </button>
-            </div>
-
-
             {loading && !current && <div className={styles.note}>Loading current playback…</div>}
             {current && current.item && (
               <>
@@ -450,7 +451,7 @@ export default function SpotifySection() {
                     </div>
                   </div>
                 )}
-                
+
                 {current.device && current.device.name === "VIBE Web Player" && (
                   <div className={styles.thisDeviceInfo}>
                     <div className={styles.deviceIcon}>
@@ -465,18 +466,25 @@ export default function SpotifySection() {
                     </div>
                   </div>
                 )}
-                
+
                 <div className={styles.nowPlaying}>
                   <div className={styles.recordContainer}>
                     <div className={`${styles.record} ${current.is_playing ? styles.spinning : ''}`}>
                       {current.item.album?.images?.[0]?.url && (
-                        <img 
-                          src={current.item.album.images[0].url} 
+                        <img
+                          src={current.item.album.images[0].url}
                           alt={current.item.name}
-                          className={styles.recordImage} 
+                          className={styles.recordImage}
                         />
                       )}
                       <div className={styles.recordCenter}></div>
+                    </div>
+                    <div className={styles.tonearmMount}>
+                      <div className={styles.tonearmRest}></div>
+                      <div className={`${styles.tonearmArm} ${current.is_playing ? styles.tonearmLowered : ''}`}>
+                        <div className={styles.tonearmHeadshell}></div>
+                      </div>
+                      <div className={styles.tonearmPivot}></div>
                     </div>
                   </div>
                   <div className={styles.trackInfo}>
@@ -484,7 +492,7 @@ export default function SpotifySection() {
                     <div className={styles.artistName}>
                       {(current.item.artists || []).map(a => a.name).join(", ")}
                     </div>
-                    <div 
+                    <div
                       className={styles.progressBar}
                       onClick={(e) => {
                         const rect = e.currentTarget.getBoundingClientRect();
@@ -495,10 +503,10 @@ export default function SpotifySection() {
                       }}
                       style={{ cursor: 'pointer' }}
                     >
-                      <div 
-                        className={styles.progressFill} 
-                        style={{ 
-                          width: `${(current.progress_ms / current.item.duration_ms) * 100}%` 
+                      <div
+                        className={styles.progressFill}
+                        style={{
+                          width: `${(current.progress_ms / current.item.duration_ms) * 100}%`
                         }}
                       ></div>
                     </div>
@@ -565,11 +573,11 @@ export default function SpotifySection() {
                 <button className={styles.backBtn} onClick={handleBackToLibrary}>
                   ← Back to Library
                 </button>
-                
+
                 <div className={styles.playlistHeader}>
                   {selectedPlaylist.images?.[0]?.url && (
-                    <img 
-                      src={selectedPlaylist.images[0].url} 
+                    <img
+                      src={selectedPlaylist.images[0].url}
                       alt={selectedPlaylist.name}
                       className={styles.playlistDetailImage}
                     />
@@ -589,7 +597,7 @@ export default function SpotifySection() {
                 </div>
 
                 {loading && <div className={styles.note}>Loading tracks...</div>}
-                
+
                 <div className={styles.trackList}>
                   {playlistTracks.map((item, idx) => {
                     const track = item.track;
@@ -617,7 +625,7 @@ export default function SpotifySection() {
                 </div>
 
                 {loading && <div className={styles.note}>Loading library…</div>}
-                
+
                 {library && libraryView === "playlists" && (
                   <div>
                     {library.playlists && library.playlists.items && library.playlists.items.length ? (
@@ -659,4 +667,6 @@ export default function SpotifySection() {
       </div>
     </section>
   );
-}
+});
+
+export default SpotifySection;
