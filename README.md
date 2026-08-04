@@ -132,3 +132,11 @@ Deploys cleanly to [Vercel](https://vercel.com). Two things to remember for prod
 - Playback control requires **Spotify Premium** (a Web Playback SDK limitation).
 - While in Development Mode, only Spotify accounts you've allow-listed in the dashboard can log in.
 - Built as a personal project to explore Next.js, the Spotify API, and real-time audio visualization.
+
+## 📌 Architecture Diagrams 
+<img width="1014" height="1049" alt="top_structure" src="https://github.com/user-attachments/assets/4abc6af5-0361-4031-9369-6b0497d98f76" />
+<img width="1016" height="1049" alt="second_layer" src="https://github.com/user-attachments/assets/4df2e4da-3211-4307-b95c-bd08237d233b" />
+<img width="1020" height="1064" alt="fourth_layer" src="https://github.com/user-attachments/assets/a7be6140-6987-4aeb-9a34-2d0fc3b873ca" />
+<img width="1013" height="1064" alt="third_layer" src="https://github.com/user-attachments/assets/0d00318e-a4e4-4a15-a4e9-5546e4c58c11" />
+
+
