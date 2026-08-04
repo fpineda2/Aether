@@ -4,31 +4,7 @@
 // Returns 204 on success (Spotify returns 204). Uses play: true to activate the device on transfer.
 
 import cookie from "cookie";
-
-async function refreshAccessToken(refreshToken) {
-  if (!process.env.SPOTIFY_CLIENT_ID || !process.env.SPOTIFY_CLIENT_SECRET) {
-    throw new Error("Missing Spotify client credentials on server");
-  }
-  const body = new URLSearchParams({
-    grant_type: "refresh_token",
-    refresh_token: refreshToken,
-    client_id: process.env.SPOTIFY_CLIENT_ID,
-    client_secret: process.env.SPOTIFY_CLIENT_SECRET,
-  });
-
-  const r = await fetch("https://accounts.spotify.com/api/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: body.toString(),
-  });
-
-  if (!r.ok) {
-    const txt = await r.text().catch(() => "");
-    throw new Error("Refresh failed: " + txt);
-  }
-  const json = await r.json();
-  return json; // contains access_token, maybe refresh_token, expires_in
-}
+import { refreshAccessToken, buildTokenCookies } from "../../../lib/spotifyAuth";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
@@ -53,28 +29,7 @@ export default async function handler(req, res) {
     try {
       const tokens = await refreshAccessToken(refreshToken);
       token = tokens.access_token;
-      const cookieOpts = {
-        httpOnly: true,
-        sameSite: "lax",
-        path: "/",
-        secure: process.env.NODE_ENV === "production",
-      };
-      const cookiesToSet = [
-        cookie.serialize("spotify_access_token", tokens.access_token, { ...cookieOpts, maxAge: tokens.expires_in || 3600 }),
-        cookie.serialize("spotify_expires_at", String(Date.now() + (tokens.expires_in || 3600) * 1000), {
-          ...cookieOpts,
-          maxAge: tokens.expires_in || 3600,
-        }),
-      ];
-      if (tokens.refresh_token) {
-        cookiesToSet.push(
-          cookie.serialize("spotify_refresh_token", tokens.refresh_token, {
-            ...cookieOpts,
-            maxAge: 30 * 24 * 60 * 60,
-          })
-        );
-      }
-      res.setHeader("Set-Cookie", cookiesToSet);
+      res.setHeader("Set-Cookie", buildTokenCookies(tokens));
     } catch (err) {
       console.warn("[/api/spotify/transfer] refresh failed", err.message || err);
       return res.status(401).json({ error: "No valid access token, refresh failed" });
@@ -95,28 +50,7 @@ export default async function handler(req, res) {
       // attempt refresh and retry once
       try {
         const tokens = await refreshAccessToken(refreshToken);
-        const cookieOpts = {
-          httpOnly: true,
-          sameSite: "lax",
-          path: "/",
-          secure: process.env.NODE_ENV === "production",
-        };
-        const cookiesToSet = [
-          cookie.serialize("spotify_access_token", tokens.access_token, { ...cookieOpts, maxAge: tokens.expires_in || 3600 }),
-          cookie.serialize("spotify_expires_at", String(Date.now() + (tokens.expires_in || 3600) * 1000), {
-            ...cookieOpts,
-            maxAge: tokens.expires_in || 3600,
-          }),
-        ];
-        if (tokens.refresh_token) {
-          cookiesToSet.push(
-            cookie.serialize("spotify_refresh_token", tokens.refresh_token, {
-              ...cookieOpts,
-              maxAge: 30 * 24 * 60 * 60,
-            })
-          );
-        }
-        res.setHeader("Set-Cookie", cookiesToSet);
+        res.setHeader("Set-Cookie", buildTokenCookies(tokens));
         // retry with new token
         const r2 = await fetch("https://api.spotify.com/v1/me/player", {
           method: "PUT",

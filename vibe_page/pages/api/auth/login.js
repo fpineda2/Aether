@@ -4,7 +4,7 @@ import cookie from "cookie";
 import crypto from "crypto";
 
 export default function handler(req, res) {
-  const redirectTo = req.query.redirect_to || "/dashboard";
+  const redirectTo = req.query.redirect_to || "/";
   const redirectUri =
     process.env.SPOTIFY_REDIRECT_URI ||
     `${process.env.NEXT_PUBLIC_BASE_URL || "http://127.0.0.1:3000"}/api/auth/callback`;
