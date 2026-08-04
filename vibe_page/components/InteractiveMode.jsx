@@ -56,7 +56,7 @@ export default function InteractiveMode() {
           width: "100%",
         }}
       >
-        {active ? "🎵 Interactive ON" : "✨ Interactive Mode"}
+        {active ? "🎵 Immersive ON" : "✨ Immersive Mode"}
       </button>
 
       <AudioReactiveController active={active} />
