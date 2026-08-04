@@ -133,7 +133,7 @@ Deploys cleanly to [Vercel](https://vercel.com). Two things to remember for prod
 - While in Development Mode, only Spotify accounts you've allow-listed in the dashboard can log in.
 - Built as a personal project to explore Next.js, the Spotify API, and real-time audio visualization.
 
-## 📌 Architecture Diagrams 
+##  Architecture Diagrams 
 <img width="1014" height="320" alt="top_structure" src="https://github.com/user-attachments/assets/3d2bcce4-af3b-4c9c-a8a6-21da51255dd5" />
 <img width="1016" height="759" alt="second_layer" src="https://github.com/user-attachments/assets/3aa64a86-2060-46f0-a2e1-fc0a79ea6edf" />
 <img width="1013" height="962" alt="third_layer" src="https://github.com/user-attachments/assets/714e7f67-b1e0-48d9-a337-1d0b4aca83b4" />
