@@ -7,17 +7,42 @@
 //   window.__starsData / __webData  (from app/layout.js)
 //   window.__audioFreq              (live FFT array, from lib/audioReactive.js)
 // Canvas ids: "starfield-bg" / "spiderweb-bg".
-
+//
+// PHOTOSENSITIVITY SAFETY NOTES
+// ------------------------------
+// The per-node/per-string pulses below are small-area and not a "flash" in
+// the WCAG 2.3.1 sense. The full-canvas radial "beat pulse" (`flash`) is a
+// large-area luminance change and IS the kind of thing that trips general
+// flash / red flash thresholds if it fires too often, too brightly, or too
+// red. Three guards keep it under the WCAG "no more than 3 flashes/sec"
+// general threshold and away from the red flash threshold:
+//   1. FLASH_MIN_INTERVAL_MS rate-limits how often the global flash can
+//      re-trigger, independent of how often beats are detected.
+//   2. Hue is clamped so the "loud" end of the ramp is a deep orange, never
+//      pure/saturated red.
+//   3. The flash's screen coverage and peak opacity are both capped lower,
+//      and it's skipped entirely for prefers-reduced-motion users.
 "use client";
 
 import { useEffect } from "react";
 
+const FLASH_MIN_INTERVAL_MS = 340; // caps the global flash under ~3/sec (WCAG general flash threshold)
+const FLASH_MAX = 0.75; // was 1.2 — smaller peak swing in overall brightness
+const FLASH_RADIUS_FRACTION = 0.55; // was 0.8 — flash no longer washes the whole viewport
+const HUE_CALM = 140; // green
+const HUE_LOUD = 26; // deep orange — stays well clear of the 0–10deg red-flash danger zone
+
 export default function AudioReactiveStarfield() {
   useEffect(() => {
+    const reducedMotion =
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+
     let intensity = 0; // smoothed sustained energy
     let flash = 0; // global beat pulse (whole web breathes together)
-    let hue = 120; // green (calm) -> red (loud), from colorEnergy
+    let hue = HUE_CALM;
     let colorEnergy = 0;
+    let lastFlashAt = 0;
     let animationFrame = null;
 
     const pulseEffects = () => {
@@ -25,7 +50,7 @@ export default function AudioReactiveStarfield() {
       const webCanvas = document.getElementById("spiderweb-bg");
 
       const e = Math.min(1, Math.max(0, colorEnergy));
-      hue = 140 * (1 - e);
+      hue = HUE_CALM - (HUE_CALM - HUE_LOUD) * e;
 
       const freq = window.__audioFreq; // Uint8Array | undefined
 
@@ -61,13 +86,15 @@ export default function AudioReactiveStarfield() {
         const cy = height / 2;
         const n = particles.length;
 
-        // subtle full-screen beat pulse — the whole web brightens as one
-        if (flash > 0.01) {
+        // Subtle full-screen beat pulse — the whole web brightens as one.
+        // Skipped entirely for prefers-reduced-motion; capped/rate-limited
+        // for everyone else (see PHOTOSENSITIVITY SAFETY NOTES above).
+        if (!reducedMotion && flash > 0.01) {
           ctx.globalCompositeOperation = "lighter";
           const g = ctx.createRadialGradient(
-            cx, cy, 0, cx, cy, Math.max(width, height) * 0.8
+            cx, cy, 0, cx, cy, Math.max(width, height) * FLASH_RADIUS_FRACTION
           );
-          g.addColorStop(0, `hsla(${hue}, 100%, 62%, ${0.14 * flash})`);
+          g.addColorStop(0, `hsla(${hue}, 100%, 62%, ${0.1 * flash})`);
           g.addColorStop(1, `hsla(${hue}, 100%, 50%, 0)`);
           ctx.fillStyle = g;
           ctx.fillRect(0, 0, width, height);
@@ -77,7 +104,7 @@ export default function AudioReactiveStarfield() {
         // Per-node amplitude from its frequency band, and a display position
         // pushed outward by (its own band) + (the global beat) = unison pulse.
         const PER = 16; // how far a node bounces on its own frequency
-        const GLOBAL = 46; // how far the whole web expands together on a beat
+        const GLOBAL = reducedMotion ? 18 : 46; // how far the whole web expands together on a beat
         const binLo = 2, binHi = 170; // musical slice of the spectrum
         const pts = new Array(n);
 
@@ -171,9 +198,17 @@ export default function AudioReactiveStarfield() {
       if (beat) {
         const strength = typeof d.beatStrength === "number" ? d.beatStrength : 0.4;
         intensity = Math.max(intensity, Math.max(0.85, inc));
-        flash = Math.min(1.2, flash + 0.9);
-        // Extra kick of color on top of the continuous tracking below, so a
-        // strong beat still pops harder than the ambient loudness alone.
+
+        // Rate-limit the GLOBAL flash independent of beat-detection frequency,
+        // so a fast/busy track can't push the full-screen pulse past ~3/sec.
+        // Per-node reactivity above still tracks every detected beat — only
+        // the large-area flash is throttled.
+        const now = typeof performance !== "undefined" ? performance.now() : Date.now();
+        if (!reducedMotion && now - lastFlashAt > FLASH_MIN_INTERVAL_MS) {
+          lastFlashAt = now;
+          flash = Math.min(FLASH_MAX, flash + 0.55);
+        }
+
         colorEnergy = Math.min(1, colorEnergy + strength * 0.4);
       } else {
         intensity += (inc - intensity) * 0.35;

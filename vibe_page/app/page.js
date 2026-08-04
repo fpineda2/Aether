@@ -27,12 +27,12 @@ export default function Page() {
       <main className="grid grid-cols-1 md:grid-cols-2 gap-8">
         {/* Feed Section — sits full width across the top */}
         <section id="feed" className="bg-gray-900/70 p-6 rounded-2xl shadow-lg shadow-purple-500/30 md:col-span-2">
-          <h2 className="text-xl font-bold mb-4">Feed / About Me / Art</h2>
-          <ul className="list-disc ml-6 text-gray-200 space-y-2">
-            <li>Post 1</li>
-            <li>Post 2</li>
-            <li>Post 3</li>
-          </ul>
+          <h2 className="text-xl font-bold mb-4">About</h2>
+                  <p className="font-[var(--font-body)] text-gray-200/90 mt-2">
+          "The connection between music and visuals is a deeply intertwined relationship that spans neurological, artistic, and historical dimensions. Whether through sensory-blending phenomena like synesthesia, historical theories of color-to-sound, or multimedia collaborations, sound and vision constantly inform and elevate each other" -
+Online College of Art and Design
+
+        </p>
         </section>
 
         {/* Playlist Section */}
