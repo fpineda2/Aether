@@ -1,6 +1,12 @@
-# 🌌 Vibe Page
+#  Aether
 
-A cosmic, music-driven web experience that connects to your Spotify account, lets you control playback, and turns your music into a real-time, beat-reactive light show rendered on an animated starfield.
+Where music becomes a place.
+
+Aether is an immersive web application that transforms your music into interactive digital worlds.
+
+Unlike traditional music players, Aether treats every listening session as an experience—combining real-time audio visualization, cinematic environments, and responsive interfaces into a living space that evolves with your music.
+
+Built with Next.js, React, Three.js, Web Audio API, Framer Motion, and the Spotify Web API, Aether explores what music streaming could feel like if it were designed as an interactive world instead of a playlist.
 
 <!-- TODO: replace with a real screenshot or GIF of the app running -->
 <!-- ![Vibe Page screenshot](./public/screenshot.png) -->
@@ -9,12 +15,12 @@ A cosmic, music-driven web experience that connects to your Spotify account, let
 
 ---
 
-## ✨ Features
+## ✨ Experiences
 
 - **Spotify authentication** — full OAuth 2.0 Authorization Code flow, implemented by hand with `httpOnly` cookie sessions, automatic token refresh, and CSRF-protected `state`.
 - **Playback control** — play/pause, skip, seek, and transfer playback between devices, plus live "now playing" state.
 - **Library & discovery** — browse your saved tracks and playlists, view playlist contents, and search the Spotify catalog.
-- **Interactive Mode (the light show)** — a beat-reactive visualizer built on the Web Audio API. Real-time FFT analysis drives an additive-glow starfield and particle web that pulse, bloom, and ripple with the music. Color encodes dynamics: calmer beats glow green, harder hits flare red.
+- **Immersion Mode (the light show)** — a beat-reactive visualizer built on the Web Audio API. Real-time FFT analysis drives an additive-glow starfield and particle web that pulse, bloom, and ripple with the music. Color encodes dynamics: calmer beats glow green, harder hits flare red.
 - **Cosmic UI** — an animated Three.js / Vanta starfield and particle "spiderweb" background, custom cursors, and a boot-sequence intro.
 
 ---
