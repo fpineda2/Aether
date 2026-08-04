@@ -134,9 +134,10 @@ Deploys cleanly to [Vercel](https://vercel.com). Two things to remember for prod
 - Built as a personal project to explore Next.js, the Spotify API, and real-time audio visualization.
 
 ## 📌 Architecture Diagrams 
-<img width="1014" height="1049" alt="top_structure" src="https://github.com/user-attachments/assets/4abc6af5-0361-4031-9369-6b0497d98f76" />
-<img width="1016" height="1049" alt="second_layer" src="https://github.com/user-attachments/assets/4df2e4da-3211-4307-b95c-bd08237d233b" />
-<img width="1020" height="1064" alt="fourth_layer" src="https://github.com/user-attachments/assets/a7be6140-6987-4aeb-9a34-2d0fc3b873ca" />
-<img width="1013" height="1064" alt="third_layer" src="https://github.com/user-attachments/assets/0d00318e-a4e4-4a15-a4e9-5546e4c58c11" />
+<img width="1020" height="925" alt="fourth_layer" src="https://github.com/user-attachments/assets/cd19001c-d8e9-43ef-874c-023dfd16d12d" />
+<img width="1013" height="962" alt="third_layer" src="https://github.com/user-attachments/assets/714e7f67-b1e0-48d9-a337-1d0b4aca83b4" />
+<img width="1016" height="759" alt="second_layer" src="https://github.com/user-attachments/assets/3aa64a86-2060-46f0-a2e1-fc0a79ea6edf" />
+<img width="1014" height="320" alt="top_structure" src="https://github.com/user-attachments/assets/3d2bcce4-af3b-4c9c-a8a6-21da51255dd5" />
+
 
 
