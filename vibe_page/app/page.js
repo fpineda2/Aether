@@ -29,7 +29,7 @@ export default function Page() {
         <section id="feed" className="bg-gray-900/70 p-6 rounded-2xl shadow-lg shadow-purple-500/30 md:col-span-2">
           <h2 className="text-xl font-bold mb-4">About</h2>
                   <p className="font-[var(--font-body)] text-gray-200/90 mt-2">
-          "The connection between music and visuals is a deeply intertwined relationship that spans neurological, artistic, and historical dimensions. Whether through sensory-blending phenomena like synesthesia, historical theories of color-to-sound, or multimedia collaborations, sound and vision constantly inform and elevate each other" -
+          &ldquo;The connection between music and visuals is a deeply intertwined relationship that spans neurological, artistic, and historical dimensions. Whether through sensory-blending phenomena like synesthesia, historical theories of color-to-sound, or multimedia collaborations, sound and vision constantly inform and elevate each other&rdquo; -
 Online College of Art and Design
 
         </p>
