@@ -13,12 +13,16 @@ export default function Page() {
       {/* Header */}
       <header className="text-center mb-8">
       <h1 className="font-[var(--font-display)] text-5xl tracking-[0.01em] leading-tight drop-shadow-[0_1px_12px_rgba(255,255,255,0.15)]">
-      Dashboard
+      Aether
       </h1>
 
-        <p className="font-[var(--font-body)] text-gray-200/90 mt-2">
-          Welcome enjoy music with some visuals
-        </p>
+        <h2 className="font-[var(--font-body)] text-gray-200/90 mt-2">
+          Where sound becomes atmosphere
+        </h2>
+
+          <h3 className="font-[var(--font-body)] text-gray-200/90 mt-2">
+          An interactive audiovisual dashboard that transforms music into responsive costmic motion, and color.
+          </h3>
 
       </header>
 
