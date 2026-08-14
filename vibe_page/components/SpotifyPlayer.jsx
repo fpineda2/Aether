@@ -439,7 +439,7 @@ export default function SpotifyPlayer({ name = "VIBE Web Player" }) {
         <div className={styles.warnBox}>
           <div>Spotify authorization is missing or needs re-consent (playback permissions).</div>
           <div style={{ marginTop: 8 }}>
-            <button className={styles.primaryBtn} onClick={handleReconnectClick}>Reconnect Spotify</button>
+            <button className={styles.primaryBtn} onClick={handleReconnectClick}>Connect Spotify</button>
           </div>
         </div>
       )}
