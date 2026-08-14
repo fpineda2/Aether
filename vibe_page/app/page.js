@@ -12,7 +12,7 @@ export default function Page() {
     <div className="p-8 max-w-7xl mx-auto space-y-8">
       {/* Header */}
       <header className="text-center mb-8">
-      <h1 className="font-[var(--font-display)] text-5xl tracking-[0.01em] leading-tight drop-shadow-[0_1px_12px_rgba(255,255,255,0.15)]">
+      <h1 className="inline-block font-[var(--font-display)] text-5xl tracking-[0.01em] leading-tight bg-[linear-gradient(90deg,#8b5cf6_0%,#67e8f9_48%,#ff2ea6_100%)] bg-clip-text text-transparent drop-shadow-[0_0_18px_rgba(139,92,246,0.45)]">
       Aether
       </h1>
 
