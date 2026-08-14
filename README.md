@@ -11,7 +11,9 @@ Built with Next.js, React, Three.js, Web Audio API, Framer Motion, and the Spoti
 <!-- TODO: replace with a real screenshot or GIF of the app running -->
 <!-- ![Vibe Page screenshot](./public/screenshot.png) -->
 
-> **Live demo:** _coming soon_ &nbsp;·&nbsp; <!-- TODO: add your Vercel URL here once deployed -->
+> **Live demo:** [aether-iota-gold.vercel.app](https://aether-iota-gold.vercel.app)
+>
+> ⚠️ **Spotify login won't work for you unless I've added you.** Spotify's Developer Platform caps apps in Development Mode to 5 allow-listed accounts, and I can only add an account by its exact email — so the Spotify-connected features (playback, search, library) are unavailable to visitors by default. Everything else — the boot animation, custom cursors, and the local-track audio-reactive visualizer — works for anyone, no login required. Want to see the Spotify side working? Reach out and I'll add your account.
 
 ---
 
