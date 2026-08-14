@@ -5,6 +5,12 @@ import InteractiveMode from "../components/InteractiveMode";
 import SpotifyPlayer from "../components/SpotifyPlayer"
 import styles from "../styles/Dashboard.module.css";
 
+export const metadata = {
+  title: "Aether | Audio-Reactive Cosmic Experience",
+  description:
+    "An interactive audiovisual dashboard that transforms music into responsive cosmic motion, color, and light.",
+};
+
 export default function Page() {
   return (
 
