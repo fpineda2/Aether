@@ -26,7 +26,7 @@ import React, { useEffect, useRef, useState } from "react";
 import styles from "./Intro.module.css";
 
 const AUDIO_PATH = "/audio/intro.mp3";
-const LOGO_PATH = "/aether-logo.png";
+const LOGO_PATH = "/aether-logo.webp";
 
 const BLOOM_DURATION = 3800; // matches "after about four seconds"
 const HOLD_DURATION = 700; // brief pause once the logo completes

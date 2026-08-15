@@ -2,9 +2,29 @@
 
 import "./globals.css"
 import { useState, useEffect, useRef } from "react"
+import dynamic from "next/dynamic"
 import BootWrapper from "../components/BootWrapper";
-import CursorWrapper from "../components/CursorWrapper"
-import AudioReactiveStarfield from "../components/AudioReactiveStarfield"
+
+// Cursor effects and the audio-reactive canvas renderer are decorative, not
+// needed for first paint — code-split them out of the main bundle instead of
+// bundling them with the critical layout/boot path. ssr:false since both
+// touch window/document immediately on mount.
+const CursorWrapper = dynamic(() => import("../components/CursorWrapper"), { ssr: false });
+const AudioReactiveStarfield = dynamic(() => import("../components/AudioReactiveStarfield"), { ssr: false });
+
+// Rough device-capability heuristic for scaling particle-heavy background
+// effects. No single signal is reliable on its own (deviceMemory is
+// Chromium-only, hardwareConcurrency can be spoofed/capped), so this treats
+// "low power" as: explicitly low core/memory count, OR a small viewport
+// (mobile-shaped devices skew toward less powerful GPUs too).
+function getPerfScale() {
+  if (typeof navigator === "undefined") return 1;
+  const cores = navigator.hardwareConcurrency || 8;
+  const mem = navigator.deviceMemory; // undefined on non-Chromium
+  const smallViewport = typeof window !== "undefined" && window.innerWidth < 768;
+  const lowPower = cores <= 4 || (mem !== undefined && mem <= 4) || smallViewport;
+  return lowPower ? 0.5 : 1;
+}
 
 export default function RootLayout({ children }) {
   const [showIntro, setShowIntro] = useState(true)
@@ -31,25 +51,28 @@ export default function RootLayout({ children }) {
     })
     document.body.appendChild(starCanvas)
 
+    const perfScale = getPerfScale() // scale particle density down on lower-powered devices
+
     const sc = starCanvas.getContext("2d")
     const resizeStar = () => {
       starCanvas.width = window.innerWidth
       starCanvas.height = window.innerHeight
 
     }
-    
-    const count = Math.floor((starCanvas.width * starCanvas.height) / 15000) // density scales with screen
-    starsRef.current = Array.from({ length: count }, () => ({         
+
+    const count = Math.floor((starCanvas.width * starCanvas.height) / 15000 * perfScale) // density scales with screen
+    starsRef.current = Array.from({ length: count }, () => ({
         x: Math.random() * starCanvas.width,
         y: Math.random() * starCanvas.height,
         r: Math.random() * 0.9 + 0.4, // 0.4–1.3 px
         a: Math.random() * Math.PI * 2, // phase
         s: Math.random() * 0.015 + 0.007, // twinkle speed
       }))
-    
+
       // Publish star data so AudioReactiveStarfield's pulse renderer can draw it
     window.__starsData = starsRef.current
 
+    let starRaf = null
     function drawStars() {
       // Only draw if AudioReactiveStarfield isn't controlling it
       if (!window.__audioReactiveActive) {
@@ -63,7 +86,9 @@ export default function RootLayout({ children }) {
           sc.fill()
         }
       }
-      requestAnimationFrame(drawStars)
+      // Stop scheduling frames while the tab is hidden — resumed by the
+      // visibilitychange listener below instead of burning cycles offscreen.
+      starRaf = document.hidden ? null : requestAnimationFrame(drawStars)
     }
 
     resizeStar()
@@ -92,7 +117,7 @@ export default function RootLayout({ children }) {
     function resizeWeb() {
       width = webCanvas.width = window.innerWidth
       height = webCanvas.height = window.innerHeight
-      particles = Array.from({ length: 145 }, () => ({
+      particles = Array.from({ length: Math.round(145 * perfScale) }, () => ({
         x: Math.random() * width,
         y: Math.random() * height,
         vx: (Math.random() - 0.5) * 0.6,
@@ -100,6 +125,7 @@ export default function RootLayout({ children }) {
       }))
     }
 
+    let webRaf = null
     function drawWeb() {
       // Only draw if AudioReactiveStarfield isn't controlling it
       if (!window.__audioReactiveActive) {
@@ -160,7 +186,8 @@ export default function RootLayout({ children }) {
       webState.current = { width, height, particles, mouse, hue } //Produced by layout and child reads it (DOWN)
       window.__webData = webState.current
 
-      requestAnimationFrame(drawWeb)
+      // Same idea as drawStars: don't keep scheduling frames while hidden.
+      webRaf = document.hidden ? null : requestAnimationFrame(drawWeb)
     }
 
     resizeWeb()
@@ -170,11 +197,25 @@ export default function RootLayout({ children }) {
     const onMove = (e) => { mouse.x = e.clientX; mouse.y = e.clientY }
     window.addEventListener("mousemove", onMove)
 
+    // Both loops stop rescheduling themselves once hidden (see the
+    // document.hidden checks above) — this restarts whichever ones aren't
+    // already running once the tab becomes visible again.
+    function handleVisibilityChange() {
+      if (!document.hidden) {
+        if (!starRaf) drawStars()
+        if (!webRaf) drawWeb()
+      }
+    }
+    document.addEventListener("visibilitychange", handleVisibilityChange)
+
     // Cleanup
     return () => {
       window.removeEventListener("resize", resizeStar)
       window.removeEventListener("resize", resizeWeb)
       window.removeEventListener("mousemove", onMove)
+      document.removeEventListener("visibilitychange", handleVisibilityChange)
+      if (starRaf) cancelAnimationFrame(starRaf)
+      if (webRaf) cancelAnimationFrame(webRaf)
       document.getElementById("starfield-bg")?.remove()
       document.getElementById("spiderweb-bg")?.remove()
       delete window.__starsData

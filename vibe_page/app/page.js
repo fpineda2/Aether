@@ -1,6 +1,3 @@
-import SpaceChains from "../components/SpaceChains"
-import BootWrapper from '../components/BootWrapper';
-import SpotifySection from "../components/SpotifySection";
 import InteractiveMode from "../components/InteractiveMode";
 import SpotifyPlayer from "../components/SpotifyPlayer"
 import styles from "../styles/Dashboard.module.css";

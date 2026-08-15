@@ -11,10 +11,23 @@ export function createAudioReactiveController(audioEl, { onError } = {}) {
   let source = null;
   let analyser = null;
   let raf = null;
+  let running = false; // true between start()/stop(), independent of whether a frame is currently scheduled
   let bassHistory = [];
   let lastBeat = 0;
   const HISTORY = 43; // ~0.7s of frames at 60fps, used as a rolling baseline
-  
+
+  // The <audio> element keeps playing in a hidden tab regardless, but the FFT
+  // analysis + event dispatching only feeds a canvas nobody can see — pause
+  // that work while hidden and pick back up once the tab is visible again.
+  function handleVisibilityChange() {
+    if (!document.hidden && running && !raf) {
+      loop();
+    }
+  }
+  if (typeof document !== "undefined") {
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+  }
+
 
   // Build the audio graph lazily, on first user gesture (browsers block
   // AudioContext until then). createMediaElementSource can only run once
@@ -85,7 +98,7 @@ export function createAudioReactiveController(audioEl, { onError } = {}) {
         },
       })
     );
-    raf = requestAnimationFrame(loop);
+    raf = document.hidden ? null : requestAnimationFrame(loop);
   }
 
   return {
@@ -93,12 +106,14 @@ export function createAudioReactiveController(audioEl, { onError } = {}) {
       try {
         ensureGraph();
         if (ctx.state === "suspended") await ctx.resume();
+        running = true;
         if (!raf) loop();
       } catch (e) {
         onError?.(e);
       }
     },
     stop() {
+      running = false;
       if (raf) {
         cancelAnimationFrame(raf);
         raf = null;
@@ -108,6 +123,9 @@ export function createAudioReactiveController(audioEl, { onError } = {}) {
     },
     dispose() {
       this.stop();
+      if (typeof document !== "undefined") {
+        document.removeEventListener("visibilitychange", handleVisibilityChange);
+      }
       try {
         source && source.disconnect();
         analyser && analyser.disconnect();

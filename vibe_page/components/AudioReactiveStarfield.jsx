@@ -185,7 +185,9 @@ export default function AudioReactiveStarfield() {
       flash *= 0.86;
       colorEnergy *= 0.96;
 
-      animationFrame = requestAnimationFrame(pulseEffects);
+      // Stop scheduling frames while the tab is hidden; handleVisibilityChange
+      // below resumes it if audio-reactive mode is still active when it's shown again.
+      animationFrame = document.hidden ? null : requestAnimationFrame(pulseEffects);
     };
 
     const handleAudioPulse = (event) => {
@@ -233,11 +235,19 @@ export default function AudioReactiveStarfield() {
       colorEnergy = 0;
     };
 
+    function handleVisibilityChange() {
+      if (!document.hidden && window.__audioReactiveActive && !animationFrame) {
+        pulseEffects();
+      }
+    }
+
     window.addEventListener("audio-pulse", handleAudioPulse);
     window.addEventListener("stop-audio-reactive", handleStop);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
     return () => {
       window.removeEventListener("audio-pulse", handleAudioPulse);
       window.removeEventListener("stop-audio-reactive", handleStop);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
       if (animationFrame) cancelAnimationFrame(animationFrame);
       window.__audioReactiveActive = false;
     };
