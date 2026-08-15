@@ -20,7 +20,7 @@ Aether turns audio into a living visual field: a canvas starfield and particle "
 
 The Authorization Code flow is hand-rolled — no auth library — with `httpOnly` cookie sessions, a signed CSRF `state` nonce, and automatic token refresh. That refresh logic was originally duplicated across three separate routes; consolidating it into one shared utility (`lib/spotifyAuth.js`) after the fact is the kind of thing a solo project lets slip until you go looking for it.
 
-The platform itself sets the harder limit: Spotify caps unverified apps at five allow-listed accounts, and — under its 2026 policy — requires the app owner's own account to carry an active Premium subscription just to keep playback alive. The live demo works for anyone to view; logging into it with your own Spotify account doesn't, by Spotify's design, not this app's.
+The platform itself sets the harder limit: Spotify caps unverified apps at five allow-listed accounts, and — under its 2026 policy — requires the app owner's own account to carry an active Premium subscription just to keep playback alive. The public demo and local audio-reactive visualizer work for every visitor. Authenticated Spotify playback is limited to the five accounts allowlisted under Spotify Development Mode.
 
 ### II. Web Audio analysis
 
@@ -38,9 +38,9 @@ A beat-reactive light show sits close to a real photosensitivity hazard, so the 
 
 Layout was audited at three real breakpoints — a modern phone, a tablet, and desktop — and came back clean, because the grid's column breakpoint and the Spotify panel's overflow handling were designed against each other from the start rather than patched in afterward.
 
-## Measured impact
+## Measured impact: three Lighthouse audits, same production URL
 
-Three real Lighthouse audits against the live production deployment, each after a targeted round of fixes — not simulated.
+Three production audits captured after successive optimization deployments.
 
 | Metric | Round 1 | Round 2 | Round 3 |
 |---|---|---|---|
