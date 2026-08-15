@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="./vibe_page/public/aether-logo.webp" alt="Aether logo" width="160">
+</p>
+
 #  Aether
 
 Where music becomes a place.
