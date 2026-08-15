@@ -2,7 +2,7 @@
 
 A solo-built case study — architecture, OAuth, real-time audio analysis, and the performance work behind [Aether](https://aether-iota-gold.vercel.app).
 
-> A polished, visual version of this document is available here: **[Engineering Aether (case study)](https://claude.ai/code/artifact/efcc41d3-5def-403f-92b1-6c648fc17f52)**
+> A polished, visual version of this document is available here: **[Engineering Aether (case study PDF)](./aether-case-study.pdf)**
 
 ---
 
