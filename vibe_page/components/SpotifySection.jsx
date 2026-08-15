@@ -72,9 +72,10 @@ const SpotifySection = forwardRef(function SpotifySection(props, ref) {
     if (tab === "browse") setTab("library");
 
     // Auto-refresh Current tab every 5 seconds to keep device info updated
+    // (skipped while the tab is hidden, matching SpotifyPlayer's own poll).
     if (tab === "current") {
       const refreshInterval = setInterval(() => {
-        fetchCurrent();
+        if (document.visibilityState === "visible") fetchCurrent();
       }, 5000);
 
       return () => clearInterval(refreshInterval);

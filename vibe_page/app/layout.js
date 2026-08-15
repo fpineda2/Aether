@@ -27,12 +27,19 @@ function getPerfScale() {
 }
 
 export default function RootLayout({ children }) {
-  const [showIntro, setShowIntro] = useState(true)
+  // The intro overlay is fully opaque, so none of the background canvases,
+  // cursor effects, or the audio-reactive controller do anything useful
+  // until the user has actually entered — they'd just burn main-thread time
+  // under something nobody can see. Deferred until BootWrapper says the
+  // intro has resolved (immediately, if already seen before).
+  const [entered, setEntered] = useState(false)
   const starsRef = useRef([]) // top level — effect fills it, JSX reads it, no re-renders
-  const webState = useRef([])  
+  const webState = useRef([])
 
 
   useEffect(() => {
+    if (!entered) return
+
     // --- Clean up any old canvases if hot reloading ---
     document.getElementById("starfield-bg")?.remove()
     document.getElementById("spiderweb-bg")?.remove()
@@ -148,23 +155,31 @@ export default function RootLayout({ children }) {
           if (mouse.x != null && mouse.y != null) {
             const dx = p.x - mouse.x
             const dy = p.y - mouse.y
-            const dist = Math.sqrt(dx * dx + dy * dy)
-            if (dist < 120) {
-              ctx.beginPath()
-              ctx.moveTo(p.x, p.y)
-              ctx.lineTo(mouse.x, mouse.y)
-              ctx.strokeStyle = `hsla(${hue}, 100%, 70%, ${1 - dist / 120})`
-              
-              ctx.stroke()
+            // Cheap bounding check before the sqrt — skips the expensive
+            // call outright for the vast majority of pairs that are
+            // obviously too far apart to ever pass the distance test.
+            if (Math.abs(dx) <= 120 && Math.abs(dy) <= 120) {
+              const dist = Math.sqrt(dx * dx + dy * dy)
+              if (dist < 120) {
+                ctx.beginPath()
+                ctx.moveTo(p.x, p.y)
+                ctx.lineTo(mouse.x, mouse.y)
+                ctx.strokeStyle = `hsla(${hue}, 100%, 70%, ${1 - dist / 120})`
+
+                ctx.stroke()
+              }
             }
           }
         })
 
-        // particle-to-particle lines (colorized)
+        // particle-to-particle lines (colorized). This is the O(n^2) hot
+        // spot — a cheap bounding check before the sqrt skips it for most
+        // of the n*(n-1)/2 pairs, which are usually too far apart to matter.
         for (let i = 0; i < particles.length; i++) {
           for (let j = i + 1; j < particles.length; j++) {
             const dx = particles[i].x - particles[j].x
             const dy = particles[i].y - particles[j].y
+            if (Math.abs(dx) > 150 || Math.abs(dy) > 150) continue
             const dist = Math.sqrt(dx * dx + dy * dy)
             if (dist < 150) {
               ctx.beginPath()
@@ -222,7 +237,7 @@ export default function RootLayout({ children }) {
       delete window.__webData
       delete window.__audioReactiveActive
     }
-  }, [])
+  }, [entered])
 
   return (
     <html lang="en">
@@ -230,13 +245,14 @@ export default function RootLayout({ children }) {
         {/* Cosmic gradient + vignette sits at the very back */}
         <div className="cosmic-gradient" />
 
-        {/* Cursor + your UI */}
-        <CursorWrapper />
-        
-        {/* Audio-reactive starfield controller */}
-        <AudioReactiveStarfield starsRef={starsRef} />  {/* CHILD AS A PROP OF LAYOUT*/}
-        
-        <BootWrapper>{children}</BootWrapper>
+        {/* Cursor + audio-reactive starfield controller — deferred until the
+            user has actually entered past the intro overlay (see the
+            `entered` effect above); nothing behind an opaque overlay needs
+            to be running. */}
+        {entered && <CursorWrapper />}
+        {entered && <AudioReactiveStarfield starsRef={starsRef} />}
+
+        <BootWrapper onEntered={() => setEntered(true)}>{children}</BootWrapper>
 
       </body>
     </html>

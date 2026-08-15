@@ -1,8 +1,13 @@
 "use client"
 import { useState, useEffect } from "react"
-import CustomCursorGalaxy from "../components/CustomCursorGalaxy"
-import BlackHoleCursor from "../components/BlackHoleCursor"
-import CometCursor from "../components/CometCursor"
+import dynamic from "next/dynamic"
+
+// Only one variant is ever rendered at a time (see renderCursor below), so
+// there's no reason to ship all three cursor engines in the same bundle —
+// each loads on demand as the user picks it.
+const CustomCursorGalaxy = dynamic(() => import("../components/CustomCursorGalaxy"), { ssr: false })
+const BlackHoleCursor = dynamic(() => import("../components/BlackHoleCursor"), { ssr: false })
+const CometCursor = dynamic(() => import("../components/CometCursor"), { ssr: false })
 
 export default function CursorWrapper() {
   const [variant, setVariant] = useState("galaxy")

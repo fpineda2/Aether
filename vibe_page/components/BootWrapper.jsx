@@ -7,8 +7,15 @@ import styles from "./BootWrapper.module.css";
 /**
  * Wrap your app content with <BootWrapper>{children}</BootWrapper>.
  * Shows Intro if localStorage 'vibe_seen_intro' is not set and skipIntro URL param is not present.
+ *
+ * `onEntered` fires exactly once, the moment boot resolves to showing the
+ * real app (immediately if the intro was already seen, or once Intro
+ * finishes) — the root layout uses this to defer mounting the cursor
+ * effects and background canvases until there's actually something for
+ * them to sit behind, instead of running them under the intro overlay
+ * where they're fully hidden and invisible anyway.
  */
-export default function BootWrapper({ children }) {
+export default function BootWrapper({ children, onEntered }) {
   const [state, setState] = useState("loading"); // "loading" | "showIntro" | "skip"
 
   useEffect(() => {
@@ -21,6 +28,7 @@ export default function BootWrapper({ children }) {
         url.searchParams.delete("skipIntro");
         window.history.replaceState({}, "", url.pathname + url.search);
         setState("skip");
+        onEntered?.();
         return;
       }
     } catch (e) {
@@ -30,9 +38,11 @@ export default function BootWrapper({ children }) {
     const seen = localStorage.getItem("vibe_seen_intro");
     if (seen === "1") {
       setState("skip");
+      onEntered?.();
     } else {
       setState("showIntro");
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (state === "loading") return null;
@@ -43,6 +53,7 @@ export default function BootWrapper({ children }) {
       onFinish={() => {
         localStorage.setItem("vibe_seen_intro", "1");
         setState("skip");
+        onEntered?.();
       }}
     />
   );

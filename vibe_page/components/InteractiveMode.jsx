@@ -4,7 +4,12 @@
 // Spotify playback), which is why it lives outside the Spotify panel.
 
 import { useState } from "react";
-import AudioReactiveController from "./AudioReactiveController";
+import dynamic from "next/dynamic";
+
+// The Web Audio analysis engine (lib/audioReactive.js + this controller) is
+// only needed once someone actually opens Immersive Mode — don't ship it in
+// the initial sidebar bundle.
+const AudioReactiveController = dynamic(() => import("./AudioReactiveController"), { ssr: false });
 
 export default function InteractiveMode() {
   const [active, setActive] = useState(false);
