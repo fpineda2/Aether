@@ -49,6 +49,21 @@ function bandAverage(freq, lo, hi) {
   return sum / (hi - lo) / 255; // 0..1
 }
 
+// Three "voice" rings — bass/mid/treble — each with its own attack/decay
+// envelope instead of a shared one, so they read as separate instrument
+// sections rather than one thing pulsing: bass swells slowly like a cello
+// section, mid is snappier like rhythm guitar/piano, treble flicks fast and
+// tight like hi-hats or a lead synth line. Reuses the blob bands above.
+const RING_VOICES = [
+  { band: BLOB_BANDS[0], attack: 0.12, decay: 0.045, baseFrac: 0.12, growFrac: 0.30, hue: 265, width: 4 }, // bass
+  { band: BLOB_BANDS[1], attack: 0.22, decay: 0.09, baseFrac: 0.09, growFrac: 0.20, hue: 190, width: 2.5 }, // mid
+  { band: BLOB_BANDS[3], attack: 0.55, decay: 0.22, baseFrac: 0.06, growFrac: 0.12, hue: 330, width: 1.5 }, // treble
+];
+
+const SPARKLE_LIFE_MS = 500;
+const SPARKLE_COOLDOWN_MS = 90;
+const SPARKLE_MAX = 40;
+
 export default function AudioReactiveStarfield() {
   useEffect(() => {
     const reducedMotion =
@@ -62,6 +77,10 @@ export default function AudioReactiveStarfield() {
     let lastFlashAt = 0;
     let animationFrame = null;
     const blobPulse = [0, 0, 0, 0]; // per-blob eased level, see pulseCosmicGradient below
+    const ringEnergy = [0, 0, 0]; // per-voice eased level (bass/mid/treble), see pulseOrchestra below
+    let trebleBaseline = 0; // rolling baseline for sparkle onset detection
+    let lastSparkleAt = 0;
+    let sparkles = []; // { x, y, born }
 
     // Ambient background glow: four soft radial blobs, each eased toward a
     // target driven by its own frequency band (falls back to overall
@@ -81,6 +100,107 @@ export default function AudioReactiveStarfield() {
         blobPulse[i] += (target - blobPulse[i]) * 0.25;
         el.style.setProperty(`--blob${i + 1}-scale`, (1 + blobPulse[i] * 0.22).toFixed(3));
         el.style.setProperty(`--blob${i + 1}-alpha`, (0.55 + blobPulse[i] * 0.9).toFixed(3));
+      }
+    };
+
+    // Three more voices on top of the starfield/web/blobs above: a live
+    // oscilloscope waveform (the literal shape of the sound), three
+    // bass/mid/treble rings each with their own attack/decay character, and
+    // brief sparkle glints on treble transients. All drawn on their own
+    // canvas so none of it disturbs the existing star/web rendering.
+    // Skipped entirely under reduced-motion, same policy as everything else.
+    const pulseOrchestra = () => {
+      if (reducedMotion) return;
+      const canvas = document.getElementById("orchestra-bg");
+      if (!canvas) return;
+      const octx = canvas.getContext("2d");
+      const w = canvas.width;
+      const h = canvas.height;
+      octx.clearRect(0, 0, w, h);
+
+      const freq = window.__audioFreq;
+      const wave = window.__audioWave;
+
+      // ---- Waveform ribbon: the actual shape of the sound, not just its level ----
+      if (wave && wave.length) {
+        const midY = h * 0.5;
+        const amp = (0.06 + intensity * 0.5 + flash * 0.35) * h * 0.18;
+        octx.save();
+        octx.globalCompositeOperation = "lighter";
+        octx.beginPath();
+        const step = w / (wave.length - 1);
+        for (let i = 0; i < wave.length; i++) {
+          const v = (wave[i] - 128) / 128; // -1..1
+          const x = i * step;
+          const y = midY + v * amp;
+          if (i === 0) octx.moveTo(x, y);
+          else octx.lineTo(x, y);
+        }
+        octx.strokeStyle = `hsla(${hue}, 100%, 70%, ${0.18 + intensity * 0.3 + flash * 0.25})`;
+        octx.lineWidth = 1.5;
+        octx.shadowColor = `hsla(${hue}, 100%, 60%, 0.6)`;
+        octx.shadowBlur = 10;
+        octx.stroke();
+        octx.restore();
+      }
+
+      // ---- Voice rings: bass/mid/treble, each its own attack/decay ----
+      const cx = w / 2;
+      const cy = h / 2;
+      const minDim = Math.min(w, h);
+      octx.save();
+      octx.globalCompositeOperation = "lighter";
+      for (let i = 0; i < RING_VOICES.length; i++) {
+        const voice = RING_VOICES[i];
+        const [lo, hi] = voice.band;
+        const target = freq && freq.length ? bandAverage(freq, lo, hi) : intensity;
+        const rate = target > ringEnergy[i] ? voice.attack : voice.decay;
+        ringEnergy[i] += (target - ringEnergy[i]) * rate;
+        const e = ringEnergy[i];
+        if (e > 0.01) {
+          const radius = minDim * voice.baseFrac + minDim * voice.growFrac * e;
+          octx.beginPath();
+          octx.arc(cx, cy, radius, 0, Math.PI * 2);
+          octx.strokeStyle = `hsla(${voice.hue}, 90%, 68%, ${Math.min(0.6, e * 0.7)})`;
+          octx.lineWidth = voice.width;
+          octx.stroke();
+        }
+      }
+      octx.restore();
+
+      // ---- Treble sparkles: brief glints on high-end transients only ----
+      const trebleNow = freq && freq.length ? bandAverage(freq, 160, 256) : 0;
+      trebleBaseline += (trebleNow - trebleBaseline) * 0.05;
+      const now = typeof performance !== "undefined" ? performance.now() : Date.now();
+      if (
+        trebleNow > trebleBaseline * 1.6 &&
+        trebleNow > 0.32 &&
+        now - lastSparkleAt > SPARKLE_COOLDOWN_MS
+      ) {
+        lastSparkleAt = now;
+        const count = 2 + Math.floor(Math.random() * 2);
+        for (let i = 0; i < count && sparkles.length < SPARKLE_MAX; i++) {
+          sparkles.push({
+            x: Math.random() * w,
+            y: Math.random() * h * 0.6, // upper portion, like glinting overtones
+            born: now,
+          });
+        }
+      }
+      if (sparkles.length) {
+        sparkles = sparkles.filter((s) => now - s.born < SPARKLE_LIFE_MS);
+        octx.save();
+        octx.globalCompositeOperation = "lighter";
+        for (const s of sparkles) {
+          const age = (now - s.born) / SPARKLE_LIFE_MS;
+          const a = 1 - age;
+          const r = 1 + age * 2.5;
+          octx.beginPath();
+          octx.arc(s.x, s.y, r, 0, Math.PI * 2);
+          octx.fillStyle = `hsla(195, 100%, 88%, ${a * 0.9})`;
+          octx.fill();
+        }
+        octx.restore();
       }
     };
 
@@ -220,6 +340,7 @@ export default function AudioReactiveStarfield() {
       }
 
       pulseCosmicGradient();
+      pulseOrchestra();
 
       // decays
       intensity *= 0.9;
@@ -281,6 +402,13 @@ export default function AudioReactiveStarfield() {
           el.style.setProperty(`--blob${i}-scale`, "1");
           el.style.setProperty(`--blob${i}-alpha`, "1");
         }
+      }
+      ringEnergy.fill(0);
+      trebleBaseline = 0;
+      sparkles = [];
+      const orchestraCanvas = document.getElementById("orchestra-bg");
+      if (orchestraCanvas) {
+        orchestraCanvas.getContext("2d").clearRect(0, 0, orchestraCanvas.width, orchestraCanvas.height);
       }
     };
 
