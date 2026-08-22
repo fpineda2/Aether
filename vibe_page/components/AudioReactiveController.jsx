@@ -41,13 +41,36 @@ export default function AudioReactiveController({
     }
   }, [active]);
 
+  // Some browsers (Safari in particular) report an empty or unreliable
+  // File.type for certain containers — .m4a is the common case, since it's
+  // ambiguous between audio/mp4 and video/mp4. A blob: URL inherits that
+  // type, and <audio> can silently refuse to play a source it can't
+  // recognize. Re-derive the MIME type from the extension instead of
+  // trusting whatever the OS/browser guessed.
+  const EXT_MIME = {
+    m4a: "audio/mp4",
+    mp3: "audio/mpeg",
+    wav: "audio/wav",
+    ogg: "audio/ogg",
+    oga: "audio/ogg",
+    flac: "audio/flac",
+    aac: "audio/aac",
+    webm: "audio/webm",
+  };
+
   function onFile(e) {
     const f = e.target.files?.[0];
     if (!f) return;
     ctrlRef.current?.stop();
     audioRef.current?.pause();
     setPlaying(false);
-    setSrc(URL.createObjectURL(f));
+    setErr("");
+
+    const ext = f.name.split(".").pop()?.toLowerCase();
+    const knownType = ext && EXT_MIME[ext];
+    const file = knownType ? new File([f], f.name, { type: knownType }) : f;
+
+    setSrc(URL.createObjectURL(file));
   }
 
   async function togglePlay() {
