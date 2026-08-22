@@ -32,6 +32,23 @@ const FLASH_RADIUS_FRACTION = 0.55; // was 0.8 — flash no longer washes the wh
 const HUE_CALM = 140; // green
 const HUE_LOUD = 26; // deep orange — stays well clear of the 0–10deg red-flash danger zone
 
+// The four .cosmic-gradient blobs each track a different slice of the
+// spectrum — sub-bass through treble — so they breathe independently
+// instead of in lockstep, like a speaker/equalizer visualization rather
+// than one uniform pulse.
+const BLOB_BANDS = [
+  [1, 24], // sub-bass/bass — same band beat detection itself watches
+  [24, 80], // low-mid
+  [80, 160], // high-mid
+  [160, 256], // treble
+];
+
+function bandAverage(freq, lo, hi) {
+  let sum = 0;
+  for (let i = lo; i < hi; i++) sum += freq[i];
+  return sum / (hi - lo) / 255; // 0..1
+}
+
 export default function AudioReactiveStarfield() {
   useEffect(() => {
     const reducedMotion =
@@ -44,6 +61,28 @@ export default function AudioReactiveStarfield() {
     let colorEnergy = 0;
     let lastFlashAt = 0;
     let animationFrame = null;
+    const blobPulse = [0, 0, 0, 0]; // per-blob eased level, see pulseCosmicGradient below
+
+    // Ambient background glow: four soft radial blobs, each eased toward a
+    // target driven by its own frequency band (falls back to overall
+    // `intensity` before any spectrum data exists — same fallback the
+    // spiderweb nodes use below). Skipped entirely under reduced-motion,
+    // same policy as the full-screen flash.
+    const pulseCosmicGradient = () => {
+      if (reducedMotion) return;
+      const el = document.querySelector(".cosmic-gradient");
+      if (!el) return;
+
+      const freq = window.__audioFreq;
+      for (let i = 0; i < 4; i++) {
+        const [lo, hi] = BLOB_BANDS[i];
+        const band = freq && freq.length ? bandAverage(freq, lo, hi) : intensity;
+        const target = Math.min(1, band * 0.9 + flash * 0.6);
+        blobPulse[i] += (target - blobPulse[i]) * 0.25;
+        el.style.setProperty(`--blob${i + 1}-scale`, (1 + blobPulse[i] * 0.22).toFixed(3));
+        el.style.setProperty(`--blob${i + 1}-alpha`, (0.55 + blobPulse[i] * 0.9).toFixed(3));
+      }
+    };
 
     const pulseEffects = () => {
       const starCanvas = document.getElementById("starfield-bg");
@@ -180,6 +219,8 @@ export default function AudioReactiveStarfield() {
         ctx.globalCompositeOperation = "source-over";
       }
 
+      pulseCosmicGradient();
+
       // decays
       intensity *= 0.9;
       flash *= 0.86;
@@ -233,6 +274,14 @@ export default function AudioReactiveStarfield() {
       intensity = 0;
       flash = 0;
       colorEnergy = 0;
+      blobPulse.fill(0);
+      const el = document.querySelector(".cosmic-gradient");
+      if (el) {
+        for (let i = 1; i <= 4; i++) {
+          el.style.setProperty(`--blob${i}-scale`, "1");
+          el.style.setProperty(`--blob${i}-alpha`, "1");
+        }
+      }
     };
 
     function handleVisibilityChange() {
