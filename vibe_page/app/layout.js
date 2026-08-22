@@ -42,7 +42,6 @@ export default function RootLayout({ children }) {
 
     // --- Clean up any old canvases if hot reloading ---
     document.getElementById("starfield-bg")?.remove()
-    document.getElementById("orchestra-bg")?.remove()
     document.getElementById("spiderweb-bg")?.remove()
 
     // --- STARFIELD (very subtle) ---
@@ -103,30 +102,6 @@ export default function RootLayout({ children }) {
     drawStars()
     window.addEventListener("resize", resizeStar)
 
-    // --- ORCHESTRA LAYER (waveform ribbon + per-band voice rings + treble
-    // sparkles, all driven by AudioReactiveStarfield). Purely audio-reactive
-    // and owns no idle/baseline animation of its own the way stars/web do
-    // above — silence just means an empty canvas, so there's nothing to
-    // draw here until the beat-detection loop actually starts writing to it.
-    const orchestraCanvas = document.createElement("canvas")
-    orchestraCanvas.id = "orchestra-bg"
-    Object.assign(orchestraCanvas.style, {
-      position: "fixed",
-      top: 0,
-      left: 0,
-      width: "100%",
-      height: "100%",
-      zIndex: "-2",
-      pointerEvents: "none",
-    })
-    document.body.appendChild(orchestraCanvas)
-    const resizeOrchestra = () => {
-      orchestraCanvas.width = window.innerWidth
-      orchestraCanvas.height = window.innerHeight
-    }
-    resizeOrchestra()
-    window.addEventListener("resize", resizeOrchestra)
-
     // --- SPIDERWEB (your original, unchanged except zIndex) ---
     const webCanvas = document.createElement("canvas")
     webCanvas.id = "spiderweb-bg"
@@ -136,7 +111,7 @@ export default function RootLayout({ children }) {
       left: 0,
       width: "100%",
       height: "100%",
-      zIndex: "-1",
+      zIndex: "-2",
       pointerEvents: "none",
     })
     document.body.appendChild(webCanvas)
@@ -251,14 +226,12 @@ export default function RootLayout({ children }) {
     // Cleanup
     return () => {
       window.removeEventListener("resize", resizeStar)
-      window.removeEventListener("resize", resizeOrchestra)
       window.removeEventListener("resize", resizeWeb)
       window.removeEventListener("mousemove", onMove)
       document.removeEventListener("visibilitychange", handleVisibilityChange)
       if (starRaf) cancelAnimationFrame(starRaf)
       if (webRaf) cancelAnimationFrame(webRaf)
       document.getElementById("starfield-bg")?.remove()
-      document.getElementById("orchestra-bg")?.remove()
       document.getElementById("spiderweb-bg")?.remove()
       delete window.__starsData
       delete window.__webData

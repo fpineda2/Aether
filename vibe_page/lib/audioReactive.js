@@ -51,14 +51,6 @@ export function createAudioReactiveController(audioEl, { onError } = {}) {
     // Publish the full spectrum so the web renderer can react per-node
     window.__audioFreq = data;
 
-    // Raw oscilloscope-style waveform (time domain, not frequency) — the
-    // actual shape of the sound itself, for the waveform ribbon. Separate
-    // buffer/length from the frequency data above: getByteTimeDomainData
-    // fills `fftSize` samples, not `frequencyBinCount` (fftSize / 2).
-    const wave = new Uint8Array(analyser.fftSize);
-    analyser.getByteTimeDomainData(wave);
-    window.__audioWave = wave;
-
     // Low band (kick/bass) drives the "beat". Skip bin 0 (DC offset).
     let bass = 0;
     const bassBins = 24;
