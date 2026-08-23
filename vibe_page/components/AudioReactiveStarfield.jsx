@@ -82,6 +82,7 @@ export default function AudioReactiveStarfield() {
     let colorEnergy = 0;
     let lastFlashAt = 0;
     let animationFrame = null;
+    let vibrationPhase = 0; // shared oscillator for the web's single center-out pulse, see below
     const blobPulse = [0, 0, 0, 0]; // per-blob eased level, see pulseCosmicGradient below
     const blobPan = [0, 0, 0, 0]; // per-blob eased L/R balance, -1 (hard left) .. 1 (hard right)
 
@@ -237,7 +238,20 @@ export default function AudioReactiveStarfield() {
         ctx.globalCompositeOperation = "lighter";
         const light = 60 + intensity * 22 + flash * 16;
 
-        // strings first — brightness/thickness driven by the two nodes they link
+        // One pulse, felt at the center (cx, cy) — like a spider sitting in
+        // the middle of its web — instead of every node/string vibrating on
+        // its own. Everything downstream (bow amplitude, phase) comes from
+        // this single value, so the whole web moves as one coherent ripple
+        // rather than a busy, independent tremor per strand.
+        vibrationPhase += 0.18;
+        const centerPulse = flash * 9 + intensity * 3;
+        const maxRadius = Math.max(width, height) * 0.6;
+
+        // strings — brightness/thickness still driven by the two nodes they
+        // link (unchanged), but the bow/tension comes entirely from the
+        // central pulse above, radiating outward: strings near the center
+        // ripple with it, strings out at the edges barely move, like a real
+        // web transmitting a disturbance back to where the spider sits.
         for (let i = 0; i < n; i++) {
           for (let j = i + 1; j < n; j++) {
             const dx = pts[i].x - pts[j].x;
@@ -248,9 +262,17 @@ export default function AudioReactiveStarfield() {
               const alpha = (1 - dist / 150) * (0.18 + pair * 0.7 + flash * 0.3);
               ctx.strokeStyle = `hsla(${webHue}, 100%, ${light}%, ${alpha})`;
               ctx.lineWidth = 0.5 + pair * 2.2 + flash * 1.5;
+
+              const midX = (pts[i].x + pts[j].x) / 2, midY = (pts[i].y + pts[j].y) / 2;
+              const invDist = 1 / (dist || 1);
+              const perpX = -dy * invDist, perpY = dx * invDist;
+              const distFromCenter = Math.hypot(midX - cx, midY - cy);
+              const falloff = Math.max(0, 1 - distFromCenter / maxRadius);
+              const bow = Math.sin(vibrationPhase) * centerPulse * falloff;
+
               ctx.beginPath();
               ctx.moveTo(pts[i].x, pts[i].y);
-              ctx.lineTo(pts[j].x, pts[j].y);
+              ctx.quadraticCurveTo(midX + perpX * bow, midY + perpY * bow, pts[j].x, pts[j].y);
               ctx.stroke();
             }
           }
