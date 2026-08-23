@@ -12,7 +12,13 @@ export default function Page() {
   return (
 
 
-    <div className="p-8 max-w-7xl mx-auto space-y-8">
+    <div className="p-8 pb-64 max-w-7xl mx-auto space-y-8">
+      {/* CursorWrapper (app/layout.js) renders a fixed panel pinned to the
+          bottom-right corner of the viewport at a maximum z-index, so it
+          always wins over in-flow page content it happens to sit above.
+          Without this reserved space, the sidebar's visualizer controls can
+          end up rendered directly underneath that corner widget on shorter
+          pages/viewports, silently swallowing clicks meant for them. */}
       {/* Header */}
       <header className="text-center mb-8">
       <h1 className="inline-block font-[var(--font-display)] text-5xl tracking-[0.01em] leading-tight bg-[linear-gradient(90deg,#8b5cf6_0%,#67e8f9_48%,#ff2ea6_100%)] bg-clip-text text-transparent drop-shadow-[0_0_18px_rgba(139,92,246,0.45)]">

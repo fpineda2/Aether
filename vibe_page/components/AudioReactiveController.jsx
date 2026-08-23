@@ -1,42 +1,76 @@
 "use client";
 // components/AudioReactiveController.jsx
-// Renders a hidden <audio> element (defaulting to the bundled intro track) plus
+// Renders a hidden <audio> element (defaulting to the bundled Portal track) plus
 // small visualizer controls. When `active` is true and the user presses play,
 // it analyzes that audio in real time and drives the starfield's beat pulses.
 //
 // Note: this reacts to a LOCAL track you control — not the Spotify stream, which
 // can't be analyzed in-browser because it's DRM-protected.
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createAudioReactiveController } from "../lib/audioReactive";
+
+// Bundled demo tracks, so visitors without their own audio file can still try
+// the visualizer. Hardcoded rather than fetched from an API route: this list
+// changes rarely (a new file added by hand once in a while), and fetching it
+// at runtime meant the picker's button showed a generic fallback label until
+// the request resolved — a visible flash/lag on every page load for content
+// that's static at build time anyway.
+const DEMO_TRACKS = [
+  { file: "Salesforce Tower - Adrian Campos Ortega.m4a", label: "Salesforce Tower - Adrian Campos Ortega" },
+  { file: "Tekken 9 - Adrian Campos Ortega.m4a", label: "Tekken 9 - Adrian Campos Ortega" },
+  { file: "portal.mp3", label: "Portal" },
+];
 
 export default function AudioReactiveController({
   active,
-  defaultSrc = "/audio/intro.mp3",
+  defaultSrc = "/audio/portal.mp3",
 }) {
   const audioRef = useRef(null);
   const ctrlRef = useRef(null);
+  const pickerRef = useRef(null);
+  const autoPlayRef = useRef(false);
   const [src, setSrc] = useState(defaultSrc);
   const [playing, setPlaying] = useState(false);
   const [err, setErr] = useState("");
-  const [tracks, setTracks] = useState([]);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [hoveredFile, setHoveredFile] = useState(null);
 
-  // Bundled demo tracks, so visitors without their own audio file can still
-  // try the visualizer. Fetched once when Immersive Mode actually opens,
-  // not on initial page load.
+  // Picking a track sets `autoPlayRef` and lets this effect do the actual
+  // play() call, once React has committed the new `src` to the <audio>
+  // element — calling play() any earlier races the DOM update from setSrc
+  // below and aborts with "interrupted by a new load request".
+  useLayoutEffect(() => {
+    if (!autoPlayRef.current) return;
+    autoPlayRef.current = false;
+    const el = audioRef.current;
+    if (!el) return;
+    (async () => {
+      try {
+        await el.play();
+        await ctrlRef.current?.start();
+        setPlaying(true);
+      } catch (e) {
+        setPlaying(false);
+        setErr(e?.message || "Couldn't start audio");
+      }
+    })();
+  }, [src]);
+
+  // Native <select> popups can't be styled consistently across browsers
+  // (Firefox/Safari mostly ignore option background/hover colors), so the
+  // track picker is a real dropdown built from styled elements instead —
+  // closes on an outside click like any other custom menu.
   useEffect(() => {
-    if (!active || tracks.length) return;
-    let cancelled = false;
-    fetch("/api/audio/tracks")
-      .then((r) => r.json())
-      .then((data) => {
-        if (!cancelled) setTracks(data?.tracks || []);
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [active, tracks.length]);
+    if (!pickerOpen) return;
+    function onDocClick(e) {
+      if (pickerRef.current && !pickerRef.current.contains(e.target)) {
+        setPickerOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, [pickerOpen]);
 
   // Build the controller once, bound to the stable <audio> element.
   useEffect(() => {
@@ -76,29 +110,32 @@ export default function AudioReactiveController({
     webm: "audio/webm",
   };
 
+  // Shared by both "pick a bundled track" and "use my own track": choosing
+  // a track and playing it are the same action, not two — there's no point
+  // in picking a song you're not going to hear, so this plays immediately
+  // instead of just loading the source and waiting for a separate click.
+  // The actual play() happens in the useLayoutEffect above, once the new
+  // src has actually landed on the <audio> element.
+  function playSrc(newSrc) {
+    ctrlRef.current?.stop();
+    setErr("");
+    autoPlayRef.current = true;
+    setSrc(newSrc);
+  }
+
   function onFile(e) {
     const f = e.target.files?.[0];
     if (!f) return;
-    ctrlRef.current?.stop();
-    audioRef.current?.pause();
-    setPlaying(false);
-    setErr("");
-
     const ext = f.name.split(".").pop()?.toLowerCase();
     const knownType = ext && EXT_MIME[ext];
     const file = knownType ? new File([f], f.name, { type: knownType }) : f;
-
-    setSrc(URL.createObjectURL(file));
+    playSrc(URL.createObjectURL(file));
   }
 
-  function onSelectTrack(e) {
-    const file = e.target.value;
+  function onSelectTrack(file) {
     if (!file) return;
-    ctrlRef.current?.stop();
-    audioRef.current?.pause();
-    setPlaying(false);
-    setErr("");
-    setSrc(`/audio/${encodeURIComponent(file)}`);
+    setPickerOpen(false);
+    playSrc(`/audio/${encodeURIComponent(file)}`);
   }
 
   async function togglePlay() {
@@ -123,6 +160,8 @@ export default function AudioReactiveController({
   const currentBundledFile = src.startsWith("/audio/")
     ? decodeURIComponent(src.slice("/audio/".length))
     : "";
+  const currentTrack = DEMO_TRACKS.find((t) => t.file === currentBundledFile);
+  const playBg = playing ? "rgba(168,85,247,0.35)" : "rgba(59,130,246,0.25)";
 
   return (
     <>
@@ -138,46 +177,123 @@ export default function AudioReactiveController({
             marginTop: 10,
           }}
         >
-          <button
-            onClick={togglePlay}
+          {/* One control, not two: picking a track and playing it are the
+              same action, so this is a single pill — play/pause on the
+              left, track picker on the right — instead of two separate
+              buttons sitting side by side. */}
+          <div
+            ref={pickerRef}
             style={{
-              padding: "6px 14px",
-              borderRadius: 10,
-              border: "1px solid rgba(255,255,255,0.15)",
-              background: playing
-                ? "rgba(168,85,247,0.35)"
-                : "rgba(59,130,246,0.25)",
-              color: "#fff",
-              cursor: "pointer",
-              fontSize: 13,
+              position: "relative",
             }}
           >
-            {playing ? "⏸ Pause visualizer" : "▶ Play visualizer track"}
-          </button>
-
-          {tracks.length > 0 && (
-            <select
-              value={currentBundledFile}
-              onChange={onSelectTrack}
-              title="Try a bundled demo track"
+            {/* This inner wrapper owns the rounded-pill clip. The dropdown
+                below must NOT be a descendant of an overflow:hidden box — it
+                positions itself via `top: calc(100% + 6px)`, i.e. entirely
+                outside this wrapper's own (button-height-only) box, so an
+                overflow:hidden here would silently clip the whole open
+                dropdown to nothing. Functionally "open" (in React state,
+                in the DOM) but invisible and un-clickable — which is exactly
+                what looked like "the arrow does nothing" from the outside. */}
+            <div
               style={{
-                padding: "6px 10px",
+                display: "flex",
                 borderRadius: 10,
                 border: "1px solid rgba(255,255,255,0.15)",
-                background: "rgba(255,255,255,0.06)",
-                color: "#fff",
-                fontSize: 12,
-                cursor: "pointer",
+                background: playBg,
+                overflow: "hidden",
               }}
             >
-              {!currentBundledFile && <option value="">🎼 Try a demo track</option>}
-              {tracks.map((t) => (
-                <option key={t.file} value={t.file}>
-                  {t.label}
-                </option>
-              ))}
-            </select>
-          )}
+              <button
+                onClick={togglePlay}
+                style={{
+                  padding: "6px 14px",
+                  border: "none",
+                  background: "transparent",
+                  color: "#fff",
+                  cursor: "pointer",
+                  fontSize: 13,
+                  fontFamily: "inherit",
+                  // A long track label (e.g. "Salesforce Tower - Adrian Campos
+                  // Ortega") must not be allowed to grow or wrap this button —
+                  // without minWidth:0 a flex child won't shrink below its
+                  // content's natural width, so a long label could push the
+                  // whole pill wider than its container, carrying the caret
+                  // button off past the visible edge. Truncate instead.
+                  minWidth: 0,
+                  maxWidth: 220,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {playing ? "⏸" : "▶"} {currentTrack ? currentTrack.label : "Play visualizer track"}
+              </button>
+
+              <button
+                onClick={() => setPickerOpen((o) => !o)}
+                title="Choose a track"
+                style={{
+                  padding: "6px 10px",
+                  border: "none",
+                  borderLeft: "1px solid rgba(255,255,255,0.18)",
+                  background: "transparent",
+                  color: "#fff",
+                  cursor: "pointer",
+                  fontSize: 13,
+                  fontFamily: "inherit",
+                  flexShrink: 0,
+                }}
+              >
+                ▾
+              </button>
+            </div>
+
+            {pickerOpen && (
+              <div
+                style={{
+                  position: "absolute",
+                  top: "calc(100% + 6px)",
+                  left: 0,
+                  zIndex: 20,
+                  minWidth: 240,
+                  maxHeight: 220,
+                  overflowY: "auto",
+                  background: "#132039",
+                  border: "1px solid rgba(255,255,255,0.15)",
+                  borderRadius: 10,
+                  padding: 4,
+                  boxShadow: "0 12px 28px rgba(0,0,0,0.45)",
+                }}
+              >
+                {DEMO_TRACKS.map((t) => {
+                  const isHovered = hoveredFile === t.file;
+                  const isSelected = t.file === currentBundledFile;
+                  return (
+                    <div
+                      key={t.file}
+                      data-track-option={t.file}
+                      onClick={() => onSelectTrack(t.file)}
+                      onMouseEnter={() => setHoveredFile(t.file)}
+                      onMouseLeave={() => setHoveredFile(null)}
+                      style={{
+                        padding: "7px 10px",
+                        borderRadius: 7,
+                        fontSize: 13,
+                        fontFamily: "inherit",
+                        cursor: "pointer",
+                        background: isHovered ? "rgba(103,232,249,0.18)" : "transparent",
+                        color: isHovered ? "#67e8f9" : "#fff",
+                        fontWeight: isSelected ? 600 : 400,
+                      }}
+                    >
+                      {t.label}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
 
           <label style={{ fontSize: 12, opacity: 0.85, cursor: "pointer" }}>
             🎧 Use my own track
