@@ -142,25 +142,28 @@ body {
 
 /* Deep cosmic gradient + vignette (bottom-most layer)
    Each blob's size/brightness is driven by --blobN-scale / --blobN-alpha,
+   and its horizontal position drifts a few percent via --blobN-x — all
    written directly (no React re-renders) by AudioReactiveStarfield on every
-   beat-detection frame — one blob per frequency band, so the four lights
-   breathe independently instead of in lockstep, like an equalizer. Defaults
-   below (1 / 1) are the original static look, used whenever nothing is
-   playing or the audio controller hasn't mounted yet. */
+   beat-detection frame. Scale/alpha come from that blob's own frequency
+   band; the x-drift comes from the same band's left/right channel
+   imbalance, so a bassline panned right actually pulls the bass blob
+   right — a real stereo cue, not a decorative wobble. Defaults below are
+   the original static look, used whenever nothing is playing or the audio
+   controller hasn't mounted yet. */
 .cosmic-gradient {
   position: fixed;
   inset: 0;
   z-index: -4; /* sits under canvases */
   pointer-events: none;
-  --blob1-scale: 1; --blob1-alpha: 1;
-  --blob2-scale: 1; --blob2-alpha: 1;
-  --blob3-scale: 1; --blob3-alpha: 1;
-  --blob4-scale: 1; --blob4-alpha: 1;
+  --blob1-scale: 1; --blob1-alpha: 1; --blob1-x: 0%;
+  --blob2-scale: 1; --blob2-alpha: 1; --blob2-x: 0%;
+  --blob3-scale: 1; --blob3-alpha: 1; --blob3-x: 0%;
+  --blob4-scale: 1; --blob4-alpha: 1; --blob4-x: 0%;
   background:
-    radial-gradient(calc(1200px * var(--blob1-scale)) calc(800px * var(--blob1-scale)) at 20% 30%, rgb(76 29 149 / calc(0.35 * var(--blob1-alpha))), transparent 60%),
-    radial-gradient(calc(900px * var(--blob2-scale)) calc(900px * var(--blob2-scale)) at 80% 20%, rgb(14 165 233 / calc(0.28 * var(--blob2-alpha))), transparent 55%),
-    radial-gradient(calc(700px * var(--blob3-scale)) calc(600px * var(--blob3-scale)) at 70% 80%, rgb(236 72 153 / calc(0.20 * var(--blob3-alpha))), transparent 60%),
-    radial-gradient(calc(1000px * var(--blob4-scale)) calc(1000px * var(--blob4-scale)) at 40% 70%, rgb(59 130 246 / calc(0.18 * var(--blob4-alpha))), transparent 65%),
+    radial-gradient(calc(1200px * var(--blob1-scale)) calc(800px * var(--blob1-scale)) at calc(20% + var(--blob1-x)) 30%, rgb(76 29 149 / calc(0.35 * var(--blob1-alpha))), transparent 60%),
+    radial-gradient(calc(900px * var(--blob2-scale)) calc(900px * var(--blob2-scale)) at calc(80% + var(--blob2-x)) 20%, rgb(14 165 233 / calc(0.28 * var(--blob2-alpha))), transparent 55%),
+    radial-gradient(calc(700px * var(--blob3-scale)) calc(600px * var(--blob3-scale)) at calc(70% + var(--blob3-x)) 80%, rgb(236 72 153 / calc(0.20 * var(--blob3-alpha))), transparent 60%),
+    radial-gradient(calc(1000px * var(--blob4-scale)) calc(1000px * var(--blob4-scale)) at calc(40% + var(--blob4-x)) 70%, rgb(59 130 246 / calc(0.18 * var(--blob4-alpha))), transparent 65%),
     linear-gradient(180deg, #030712 0%, #0b1020 60%, #000 100%);
   /* vignette */
   box-shadow: inset 0 0 200px 60px rgba(0,0,0,0.6);

@@ -10,6 +10,9 @@ export function createAudioReactiveController(audioEl, { onError } = {}) {
   let ctx = null;
   let source = null;
   let analyser = null;
+  let splitter = null;
+  let leftAnalyser = null;
+  let rightAnalyser = null;
   let raf = null;
   let running = false; // true between start()/stop(), independent of whether a frame is currently scheduled
   let bassHistory = [];
@@ -42,6 +45,19 @@ export function createAudioReactiveController(audioEl, { onError } = {}) {
     analyser.smoothingTimeConstant = 0.8;
     source.connect(analyser);
     analyser.connect(ctx.destination); // keep the audio audible
+
+    // Separate left/right analysers off a channel splitter — the combined
+    // analyser above only ever sees the mixed-down signal, so this is the
+    // only way to tell a bassline panned right from one panned left. Purely
+    // additive tap; doesn't touch the audible signal path above.
+    splitter = ctx.createChannelSplitter(2);
+    source.connect(splitter);
+    leftAnalyser = ctx.createAnalyser();
+    rightAnalyser = ctx.createAnalyser();
+    leftAnalyser.fftSize = rightAnalyser.fftSize = 1024;
+    leftAnalyser.smoothingTimeConstant = rightAnalyser.smoothingTimeConstant = 0.8;
+    splitter.connect(leftAnalyser, 0);
+    splitter.connect(rightAnalyser, 1);
   }
 
   function loop() {
@@ -50,6 +66,16 @@ export function createAudioReactiveController(audioEl, { onError } = {}) {
 
     // Publish the full spectrum so the web renderer can react per-node
     window.__audioFreq = data;
+
+    // Per-channel spectrum, for anything that wants to know WHERE in the
+    // stereo field a sound is coming from (e.g. the background blobs
+    // drifting toward whichever side a given band is panned to).
+    const dataL = new Uint8Array(leftAnalyser.frequencyBinCount);
+    const dataR = new Uint8Array(rightAnalyser.frequencyBinCount);
+    leftAnalyser.getByteFrequencyData(dataL);
+    rightAnalyser.getByteFrequencyData(dataR);
+    window.__audioFreqL = dataL;
+    window.__audioFreqR = dataR;
 
     // Low band (kick/bass) drives the "beat". Skip bin 0 (DC offset).
     let bass = 0;
@@ -129,11 +155,16 @@ export function createAudioReactiveController(audioEl, { onError } = {}) {
       try {
         source && source.disconnect();
         analyser && analyser.disconnect();
+        splitter && splitter.disconnect();
+        leftAnalyser && leftAnalyser.disconnect();
+        rightAnalyser && rightAnalyser.disconnect();
       } catch (e) {}
       try {
         ctx && ctx.close();
       } catch (e) {}
-      ctx = source = analyser = null;
+      ctx = source = analyser = splitter = leftAnalyser = rightAnalyser = null;
+      delete window.__audioFreqL;
+      delete window.__audioFreqR;
     },
   };
 }
