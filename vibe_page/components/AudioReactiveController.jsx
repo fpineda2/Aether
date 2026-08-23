@@ -19,6 +19,24 @@ export default function AudioReactiveController({
   const [src, setSrc] = useState(defaultSrc);
   const [playing, setPlaying] = useState(false);
   const [err, setErr] = useState("");
+  const [tracks, setTracks] = useState([]);
+
+  // Bundled demo tracks, so visitors without their own audio file can still
+  // try the visualizer. Fetched once when Immersive Mode actually opens,
+  // not on initial page load.
+  useEffect(() => {
+    if (!active || tracks.length) return;
+    let cancelled = false;
+    fetch("/api/audio/tracks")
+      .then((r) => r.json())
+      .then((data) => {
+        if (!cancelled) setTracks(data?.tracks || []);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [active, tracks.length]);
 
   // Build the controller once, bound to the stable <audio> element.
   useEffect(() => {
@@ -73,6 +91,16 @@ export default function AudioReactiveController({
     setSrc(URL.createObjectURL(file));
   }
 
+  function onSelectTrack(e) {
+    const file = e.target.value;
+    if (!file) return;
+    ctrlRef.current?.stop();
+    audioRef.current?.pause();
+    setPlaying(false);
+    setErr("");
+    setSrc(`/audio/${encodeURIComponent(file)}`);
+  }
+
   async function togglePlay() {
     const el = audioRef.current;
     if (!el) return;
@@ -91,6 +119,10 @@ export default function AudioReactiveController({
       setErr(e?.message || "Couldn't start audio");
     }
   }
+
+  const currentBundledFile = src.startsWith("/audio/")
+    ? decodeURIComponent(src.slice("/audio/".length))
+    : "";
 
   return (
     <>
@@ -122,6 +154,30 @@ export default function AudioReactiveController({
           >
             {playing ? "⏸ Pause visualizer" : "▶ Play visualizer track"}
           </button>
+
+          {tracks.length > 0 && (
+            <select
+              value={currentBundledFile}
+              onChange={onSelectTrack}
+              title="Try a bundled demo track"
+              style={{
+                padding: "6px 10px",
+                borderRadius: 10,
+                border: "1px solid rgba(255,255,255,0.15)",
+                background: "rgba(255,255,255,0.06)",
+                color: "#fff",
+                fontSize: 12,
+                cursor: "pointer",
+              }}
+            >
+              {!currentBundledFile && <option value="">🎼 Try a demo track</option>}
+              {tracks.map((t) => (
+                <option key={t.file} value={t.file}>
+                  {t.label}
+                </option>
+              ))}
+            </select>
+          )}
 
           <label style={{ fontSize: 12, opacity: 0.85, cursor: "pointer" }}>
             🎧 Use my own track
