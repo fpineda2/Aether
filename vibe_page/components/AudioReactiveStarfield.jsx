@@ -49,6 +49,16 @@ function bandAverage(freq, lo, hi) {
   return sum / (hi - lo) / 255; // 0..1
 }
 
+// Each blob gets its own attack/decay envelope — same idea as a real
+// instrument section: bass swells in slowly and lingers, treble flicks in
+// fast and drops out quickly. Index-matched to BLOB_BANDS/--blobN below.
+const BLOB_ENVELOPES = [
+  { attack: 0.12, decay: 0.045 }, // bass
+  { attack: 0.20, decay: 0.08 }, // low-mid
+  { attack: 0.32, decay: 0.13 }, // high-mid
+  { attack: 0.50, decay: 0.20 }, // treble
+];
+
 export default function AudioReactiveStarfield() {
   useEffect(() => {
     const reducedMotion =
@@ -66,8 +76,12 @@ export default function AudioReactiveStarfield() {
     // Ambient background glow: four soft radial blobs, each eased toward a
     // target driven by its own frequency band (falls back to overall
     // `intensity` before any spectrum data exists — same fallback the
-    // spiderweb nodes use below). Skipped entirely under reduced-motion,
-    // same policy as the full-screen flash.
+    // spiderweb nodes use below), with its own attack/decay envelope so the
+    // four read as separate voices layered together — bass swelling in
+    // slowly and lingering, treble flicking in fast and dropping out quick
+    // — rather than one uniform pulse. Colors are untouched, straight from
+    // the CSS in globals.css. Skipped entirely under reduced-motion, same
+    // policy as the full-screen flash.
     const pulseCosmicGradient = () => {
       if (reducedMotion) return;
       const el = document.querySelector(".cosmic-gradient");
@@ -78,7 +92,9 @@ export default function AudioReactiveStarfield() {
         const [lo, hi] = BLOB_BANDS[i];
         const band = freq && freq.length ? bandAverage(freq, lo, hi) : intensity;
         const target = Math.min(1, band * 0.9 + flash * 0.6);
-        blobPulse[i] += (target - blobPulse[i]) * 0.25;
+        const { attack, decay } = BLOB_ENVELOPES[i];
+        const rate = target > blobPulse[i] ? attack : decay;
+        blobPulse[i] += (target - blobPulse[i]) * rate;
         el.style.setProperty(`--blob${i + 1}-scale`, (1 + blobPulse[i] * 0.22).toFixed(3));
         el.style.setProperty(`--blob${i + 1}-alpha`, (0.55 + blobPulse[i] * 0.9).toFixed(3));
       }
