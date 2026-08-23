@@ -346,7 +346,12 @@ export default function ChallengePage() {
             <li>Attach it to an email with the track title and how you&rsquo;d like to be credited.</li>
             <li>Send it — if it&rsquo;s a fit, you&rsquo;ll hear back once it&rsquo;s live.</li>
           </ol>
-          <a href={mailtoHref} className={styles.emailButton}>
+          <a
+            href={mailtoHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={styles.emailButton}
+          >
             ✉ Email your submission
           </a>
         </div>
