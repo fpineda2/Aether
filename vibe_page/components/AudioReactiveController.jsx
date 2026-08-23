@@ -305,6 +305,20 @@ export default function AudioReactiveController({
             />
           </label>
 
+          <a
+            href="/challenge"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              fontSize: 12,
+              opacity: 0.85,
+              color: "#67e8f9",
+              textDecoration: "none",
+            }}
+          >
+            🎼 Complete the Challenge
+          </a>
+
           {err && (
             <span style={{ color: "#f87171", fontSize: 12 }}>{err}</span>
           )}
