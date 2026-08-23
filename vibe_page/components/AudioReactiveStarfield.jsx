@@ -32,6 +32,15 @@ const FLASH_RADIUS_FRACTION = 0.55; // was 0.8 — flash no longer washes the wh
 const HUE_CALM = 140; // green
 const HUE_LOUD = 26; // deep orange — stays well clear of the 0–10deg red-flash danger zone
 
+// Per-node spectrum coloring for the spiderweb: each node keeps its own
+// hue based on where it sits in the frequency range, red (bass) through
+// violet (treble) — full spectrum, unlike the flash's clamped range above.
+// Safe to use red/small hue values here since these are per-node/per-string
+// small-area pulses, not the large-area flash the WCAG concern above is
+// actually about (see PHOTOSENSITIVITY SAFETY NOTES at the top of the file).
+const NODE_HUE_START = 0; // red — bass
+const NODE_HUE_END = 280; // violet — treble
+
 // The four .cosmic-gradient blobs each track a different slice of the
 // spectrum — sub-bass through treble — so they breathe independently
 // instead of in lockstep, like a speaker/equalizer visualization rather
@@ -188,9 +197,19 @@ export default function AudioReactiveStarfield() {
           if (p.x < 0 || p.x > width) p.vx *= -1;
           if (p.y < 0 || p.y > height) p.vy *= -1;
 
+          // Each node's hue comes from where it sits in the spectrum — low
+          // bins (bass) read warm/red, high bins (treble) read cool/violet,
+          // the same low-frequency-to-high-frequency mapping visible light
+          // itself uses. It's the node's own identity, not the scene mood,
+          // so it stays fixed by position rather than riding colorEnergy —
+          // only brightness/alpha below still respond to how loud that note
+          // actually is right now.
+          const posFrac = i / n;
+          const nodeHue = NODE_HUE_START + posFrac * (NODE_HUE_END - NODE_HUE_START);
+
           let a;
           if (freq && freq.length) {
-            const bin = binLo + Math.floor((i / n) * (binHi - binLo));
+            const bin = binLo + Math.floor(posFrac * (binHi - binLo));
             a = freq[bin] / 255;
           } else {
             a = intensity; // fallback before any spectrum data exists
@@ -200,7 +219,7 @@ export default function AudioReactiveStarfield() {
           let dy = p.y - cy;
           const d = Math.hypot(dx, dy) || 1;
           const push = a * PER + flash * GLOBAL;
-          pts[i] = { x: p.x + (dx / d) * push, y: p.y + (dy / d) * push, a };
+          pts[i] = { x: p.x + (dx / d) * push, y: p.y + (dy / d) * push, a, hue: nodeHue };
         }
 
         ctx.globalCompositeOperation = "lighter";
@@ -215,7 +234,8 @@ export default function AudioReactiveStarfield() {
             if (dist < 150) {
               const pair = (pts[i].a + pts[j].a) * 0.5;
               const alpha = (1 - dist / 150) * (0.18 + pair * 0.7 + flash * 0.3);
-              ctx.strokeStyle = `hsla(${hue}, 100%, ${light}%, ${alpha})`;
+              const stringHue = (pts[i].hue + pts[j].hue) / 2;
+              ctx.strokeStyle = `hsla(${stringHue}, 100%, ${light}%, ${alpha})`;
               ctx.lineWidth = 0.5 + pair * 2.2 + flash * 1.5;
               ctx.beginPath();
               ctx.moveTo(pts[i].x, pts[i].y);
@@ -231,7 +251,7 @@ export default function AudioReactiveStarfield() {
           const ps = 1.4 + a * 5.5 + flash * 2;
           ctx.beginPath();
           ctx.arc(pts[i].x, pts[i].y, ps, 0, Math.PI * 2);
-          ctx.fillStyle = `hsla(${hue}, 100%, ${62 + a * 25}%, ${0.5 + a * 0.5})`;
+          ctx.fillStyle = `hsla(${pts[i].hue}, 100%, ${62 + a * 25}%, ${0.5 + a * 0.5})`;
           ctx.fill();
 
           if (mouse.x != null && mouse.y != null) {
@@ -239,7 +259,7 @@ export default function AudioReactiveStarfield() {
             const mdy = pts[i].y - mouse.y;
             const md = Math.hypot(mdx, mdy);
             if (md < 150) {
-              ctx.strokeStyle = `hsla(${hue}, 100%, ${light}%, ${
+              ctx.strokeStyle = `hsla(${pts[i].hue}, 100%, ${light}%, ${
                 (1 - md / 150) * (0.22 + a * 0.5)
               })`;
               ctx.lineWidth = 0.6 + a * 1.5;
