@@ -42,7 +42,14 @@ export default function InteractiveMode() {
       <h2 className="font-[var(--font-heading)] italic text-2xl mb-2">
         Visualizer
       </h2>
-      <p style={{ fontSize: 12, opacity: 0.75, marginBottom: 12, lineHeight: 1.4 }}>
+      <p
+        style={{
+          fontSize: 14,
+          opacity: 0.85,
+          marginBottom: 12,
+          lineHeight: 1.5,
+        }}
+      >
         A beat-reactive light show driven by a local track — independent of
         Spotify playback.
       </p>
@@ -59,6 +66,7 @@ export default function InteractiveMode() {
           cursor: "pointer",
           fontSize: 14,
           width: "100%",
+          marginBottom: 18,
         }}
       >
         {active ? "🎵 Immersive ON" : "✨ Immersive Mode"}

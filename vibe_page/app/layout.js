@@ -241,6 +241,18 @@ export default function RootLayout({ children }) {
 
   return (
     <html lang="en">
+      <head>
+        {/* globals.css already references Gloock/Cormorant Garamond/Spectral
+            via --font-display/--font-heading/--font-body, but nothing ever
+            actually loaded those families — every heading site-wide has been
+            silently falling back to the browser's generic serif. */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Gloock&family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Spectral:ital,wght@0,400;0,500;0,600;1,400&display=swap"
+          rel="stylesheet"
+        />
+      </head>
       <body className="relative min-h-screen text-white">
         {/* Cosmic gradient + vignette sits at the very back */}
         <div className="cosmic-gradient" />
