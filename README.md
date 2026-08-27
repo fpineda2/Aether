@@ -26,7 +26,11 @@ Built with Next.js, React, the Web Audio API, and the Spotify Web API, Aether ex
 - **Spotify authentication** — full OAuth 2.0 Authorization Code flow, implemented by hand with `httpOnly` cookie sessions, automatic token refresh, and CSRF-protected `state`.
 - **Playback control** — play/pause, skip, seek, and transfer playback between devices, plus live "now playing" state.
 - **Library & discovery** — browse your saved tracks and playlists, view playlist contents, and search the Spotify catalog.
-- **Immersion Mode (the light show)** — a beat-reactive visualizer built on the Web Audio API. Real-time FFT analysis drives an additive-glow starfield and particle web that pulse, bloom, and ripple with the music. Color encodes dynamics: calmer beats glow green, harder hits flare red.
+- **Immersion Mode (the light show)** — a beat-reactive visualizer built on the Web Audio API. Real-time FFT analysis drives an additive-glow starfield and particle web that pulse, bloom, and ripple with the music. The web's own color drifts along a red(bass)–violet(treble) spectrum tracking where the music's energy is centered, while a separate calm-green–to–warm-orange pulse tracks overall loudness/impact — and each of four frequency bands independently drifts left/right with its own stereo panning.
+- **Bundled demo tracks** — a built-in track picker with a few ready-to-play local tracks, including two original compositions by a collaborator (credited by name in the title), so anyone can try the visualizer instantly with no file of their own.
+- **Tab & system audio capture** — Spotify's own stream can't be analyzed directly (see Engineering Notes), so Interactive Mode can instead capture whatever's already playing out loud from a shared browser tab via `getDisplayMedia` — Spotify, Apple Music, YouTube, anything — and feed it into the same real-time analysis. Works alongside local playback, not instead of it; picking one stops the other.
+- **The Aether Challenge** — an open invitation for other musicians to compose for the installation: a full listening brief (frequency bands, beat behavior, color/stereo logic) at `/challenge`, with a submission path for a track to be added to the bundled list.
+- **Focus mode** — a one-click "Only Background" toggle that hides all page content, leaving just the cosmic visuals running underneath.
 - **Cosmic UI** — an animated Three.js / Vanta starfield and particle "spiderweb" background, custom cursors, and a boot-sequence intro.
 
 ---
@@ -104,6 +108,7 @@ Then open **http://127.0.0.1:3000** (use `127.0.0.1`, not `localhost`, so the OA
 A few problems worth calling out, because they shaped the design:
 
 - **The visualizer reacts to a local track, not the Spotify stream — on purpose.** Spotify's Web Playback SDK plays through DRM (Encrypted Media Extensions), which the Web Audio API cannot tap, so the live stream can't be analyzed in-browser. Spotify's Audio Analysis / Audio Features endpoints (which used to provide beat and tempo data) were also deprecated for new apps in November 2024. Given both constraints, Interactive Mode analyzes a local audio track you control via a real `AnalyserNode` — the only way to get genuine, frame-accurate reactivity in the browser.
+- **Tab/system audio capture sidesteps the same DRM wall from a different angle.** Instead of tapping the encrypted stream directly (impossible), `getDisplayMedia`'s tab-sharing audio captures whatever's already been decoded and is playing out loud — the same way a microphone would, just without the room noise. That makes it source-agnostic (Spotify, Apple Music, YouTube, anything), at the cost of being far less consistent across browsers: solid in Chrome/Edge, weak or missing entirely in Firefox and on mobile.
 - **Beat detection** compares instantaneous low-band (bass) energy against a rolling baseline, with a short refractory window so fast bass doesn't smear into one continuous pulse. Each beat's loudness drives color, size, a screen flash, and an expanding shockwave ring.
 - **Hand-rolled OAuth.** The Authorization Code flow, refresh-token rotation, and CSRF `state` nonce are implemented directly rather than via a library, so the token lifecycle is fully visible in `pages/api/auth/`.
 
@@ -114,12 +119,13 @@ A few problems worth calling out, because they shaped the design:
 ```
 vibe_page/
 ├── app/                    # App Router: root layout, background canvases, pages
+│   └── challenge/          # The Aether Challenge — scoring brief + submission
 ├── components/             # UI + visualizers (SpotifyPlayer, AudioReactiveStarfield, cursors…)
-├── lib/                    # Web Audio analysis + helpers
+├── lib/                    # Web Audio analysis + helpers (local track + tab/stream capture)
 ├── pages/api/
 │   ├── auth/               # OAuth: login, callback, token, refresh
 │   └── spotify/            # Playback + library proxy routes
-└── public/                 # Static assets (audio, icons)
+└── public/audio/           # Bundled demo tracks
 ```
 
 ---
@@ -137,6 +143,7 @@ Deploys cleanly to [Vercel](https://vercel.com). Two things to remember for prod
 
 - Playback control requires **Spotify Premium** (a Web Playback SDK limitation).
 - While in Development Mode, only Spotify accounts you've allow-listed in the dashboard can log in.
+- Tab/system audio capture needs a secure context (`https://` or `http://localhost`) and works best in Chrome/Edge — Firefox's support is inconsistent, and most mobile browsers don't support it at all.
 - Built as a personal project to explore Next.js, the Spotify API, and real-time audio visualization.
 
 ##  Architecture Diagrams 
