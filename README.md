@@ -149,8 +149,8 @@ Deploys cleanly to [Vercel](https://vercel.com). Two things to remember for prod
 ##  Architecture Diagrams 
 <img width="1014" height="320" alt="top_structure" src="https://github.com/user-attachments/assets/3d2bcce4-af3b-4c9c-a8a6-21da51255dd5" />
 <img width="1016" height="759" alt="second_layer" src="https://github.com/user-attachments/assets/3aa64a86-2060-46f0-a2e1-fc0a79ea6edf" />
-<img width="574" height="518" alt="Screenshot 2026-08-27 064549" src="https://github.com/user-attachments/assets/0c27c646-e227-4d65-bec0-54d23d8e92e4" />
-<img width="623" height="512" alt="Screenshot 2026-08-27 064606" src="https://github.com/user-attachments/assets/fba0c0d9-8916-49f8-96f6-3f55e30b2f49" />
+<img width="1016" height="759" alt="Screenshot 2026-08-27 064549" src="https://github.com/user-attachments/assets/0c27c646-e227-4d65-bec0-54d23d8e92e4" />
+<img width="1016" height="759" alt="Screenshot 2026-08-27 064606" src="https://github.com/user-attachments/assets/fba0c0d9-8916-49f8-96f6-3f55e30b2f49" />
 
 
 
