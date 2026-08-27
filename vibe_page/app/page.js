@@ -1,5 +1,6 @@
 import InteractiveMode from "../components/InteractiveMode";
 import SpotifyPlayer from "../components/SpotifyPlayer"
+import FocusModeWrapper from "../components/FocusModeWrapper";
 import styles from "../styles/Dashboard.module.css";
 
 export const metadata = {
@@ -19,6 +20,7 @@ export default function Page() {
           Without this reserved space, the sidebar's visualizer controls can
           end up rendered directly underneath that corner widget on shorter
           pages/viewports, silently swallowing clicks meant for them. */}
+      <FocusModeWrapper>
       {/* Header */}
       <header className="text-center mb-8">
       <h1 className="inline-block font-[var(--font-display)] text-5xl tracking-[0.01em] leading-tight bg-[linear-gradient(90deg,#8b5cf6_0%,#67e8f9_48%,#ff2ea6_100%)] bg-clip-text text-transparent drop-shadow-[0_0_18px_rgba(139,92,246,0.45)]">
@@ -69,6 +71,7 @@ Online College of Art and Design
           </div>
         </aside>
       </main>
+      </FocusModeWrapper>
 
     </div>
   )

@@ -467,14 +467,7 @@ export default function AudioReactiveController({
               gap: 6,
             }}
           >
-            <span
-              style={{
-                fontSize: 11,
-                letterSpacing: "0.06em",
-                textTransform: "uppercase",
-                opacity: 0.55,
-              }}
-            >
+            <span style={{ fontSize: 12, opacity: 0.75 }}>
               Or use what&rsquo;s already playing
             </span>
             <span style={{ fontSize: 12, opacity: 0.75 }}>

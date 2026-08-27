@@ -44,8 +44,6 @@ export default function InteractiveMode() {
       </h2>
       <p
         style={{
-          fontFamily:
-            '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
           fontSize: 14,
           opacity: 0.85,
           marginBottom: 12,
@@ -68,6 +66,7 @@ export default function InteractiveMode() {
           cursor: "pointer",
           fontSize: 14,
           width: "100%",
+          marginBottom: 18,
         }}
       >
         {active ? "🎵 Immersive ON" : "✨ Immersive Mode"}
