@@ -8,7 +8,10 @@
 // can't be analyzed in-browser because it's DRM-protected.
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { createAudioReactiveController } from "../lib/audioReactive";
+import {
+  createAudioReactiveController,
+  createStreamReactiveController,
+} from "../lib/audioReactive";
 
 // Bundled demo tracks, so visitors without their own audio file can still try
 // the visualizer. Hardcoded rather than fetched from an API route: this list
@@ -28,10 +31,15 @@ export default function AudioReactiveController({
 }) {
   const audioRef = useRef(null);
   const ctrlRef = useRef(null);
+  // Holds { controller, stream } while a tab/system audio capture is live —
+  // unlike ctrlRef (built once for the stable <audio> element), this is
+  // created and torn down fresh on every capture start/stop.
+  const captureCtrlRef = useRef(null);
   const pickerRef = useRef(null);
   const autoPlayRef = useRef(false);
   const [src, setSrc] = useState(defaultSrc);
   const [playing, setPlaying] = useState(false);
+  const [capturing, setCapturing] = useState(false);
   const [err, setErr] = useState("");
   const [pickerOpen, setPickerOpen] = useState(false);
   const [hoveredFile, setHoveredFile] = useState(null);
@@ -81,17 +89,133 @@ export default function AudioReactiveController({
     return () => {
       ctrlRef.current?.dispose();
       ctrlRef.current = null;
+      // Also release any active tab capture on unmount — otherwise
+      // navigating away would leave the browser's "sharing this tab"
+      // indicator on indefinitely.
+      const cap = captureCtrlRef.current;
+      if (cap) {
+        cap.controller.dispose();
+        cap.stream.getTracks().forEach((t) => t.stop());
+        captureCtrlRef.current = null;
+      }
     };
   }, []);
 
-  // Turning interactive mode off stops the pulses and the audio.
+  // Turning interactive mode off stops the pulses and whatever's feeding them.
   useEffect(() => {
     if (!active) {
       ctrlRef.current?.stop();
       audioRef.current?.pause();
       setPlaying(false);
+      stopCapture();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active]);
+
+  // Releases a live tab/system audio capture — called from the "Stop
+  // Capturing" button, when the shared tab/window is closed or "Stop
+  // sharing" is clicked in the browser's own UI (via the audio track's
+  // `ended` event), when interactive mode is turned off, and on unmount.
+  function stopCapture() {
+    const cap = captureCtrlRef.current;
+    if (!cap) return;
+    cap.controller.dispose();
+    cap.stream.getTracks().forEach((t) => t.stop());
+    captureCtrlRef.current = null;
+    setCapturing(false);
+  }
+
+  // Captures another tab (or, depending on the browser/OS, the whole
+  // system)'s audio output via getDisplayMedia and feeds it to the same
+  // beat-detection pipeline as a local track. This is how a visitor's own
+  // Spotify/Apple Music/whatever ends up driving the visuals: not by
+  // reading the stream directly (impossible — it's DRM-protected), but by
+  // listening to what's already playing out loud, the same way a
+  // microphone would.
+  async function startCapture() {
+    setErr("");
+    if (!navigator.mediaDevices?.getDisplayMedia) {
+      // getDisplayMedia (like most media-capture APIs) is only exposed on
+      // secure origins — https:// or http://localhost. A plain http:// LAN
+      // address (e.g. testing over Wi-Fi at a 192.168.x.x URL) leaves
+      // mediaDevices entirely undefined even in a browser that fully
+      // supports the feature, which reads identically to "not supported"
+      // unless called out specifically.
+      setErr(
+        typeof window !== "undefined" && !window.isSecureContext
+          ? "Tab audio capture needs a secure connection — this won't work over a plain http:// address, only https:// or http://localhost."
+          : "Tab audio capture isn't supported in this browser."
+      );
+      return;
+    }
+    // Only one source should ever drive the visualizer at a time.
+    audioRef.current?.pause();
+    ctrlRef.current?.stop();
+    setPlaying(false);
+    let stream;
+    try {
+      stream = await navigator.mediaDevices.getDisplayMedia({
+        // A bare `video: true` lets the picker default to "Entire Screen",
+        // where Chrome's "share tab audio" checkbox either isn't offered or
+        // behaves inconsistently. `displaySurface: "browser"` biases the
+        // picker toward the "Chrome Tab" view, where tab-audio sharing is
+        // most reliably available and the checkbox actually shows up.
+        video: { displaySurface: "browser" },
+        // A bare `audio: true` requests audio "if convenient" in some
+        // Chrome versions; the explicit constraint object below asks for it
+        // more assertively and, together with suppressLocalAudioPlayback,
+        // makes sure sharing doesn't mute the source tab's own playback
+        // (we're only tapping a copy of the signal, not routing it back to
+        // speakers ourselves — the original tab needs to keep playing).
+        audio: {
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: false,
+          suppressLocalAudioPlayback: false,
+        },
+        // Chrome-only hints: if the visitor picks "Entire Screen" anyway,
+        // try to include system audio rather than defaulting to muted, and
+        // don't offer this very tab as a share target (sharing ourselves
+        // would be pointless and confusing).
+        systemAudio: "include",
+        selfBrowserSurface: "exclude",
+      });
+    } catch (e) {
+      // NotAllowedError just means the visitor closed the picker — not a
+      // real error worth surfacing.
+      if (e?.name !== "NotAllowedError") {
+        setErr(e?.message || "Couldn't start tab capture");
+      }
+      return;
+    }
+    const audioTracks = stream.getAudioTracks();
+    if (audioTracks.length === 0) {
+      stream.getTracks().forEach((t) => t.stop());
+      // Firefox's tab-audio sharing is genuinely much less reliable than
+      // Chrome/Edge's — this isn't necessarily something the visitor did
+      // wrong, so say so instead of just repeating instructions that may
+      // not be the actual problem.
+      const isFirefox =
+        typeof navigator !== "undefined" && /firefox/i.test(navigator.userAgent);
+      setErr(
+        isFirefox
+          ? "Firefox's tab audio sharing is unreliable for this — Chrome or Edge work much better here."
+          : 'That didn\'t include audio — share a browser tab (not the whole screen) and check "Share tab audio".'
+      );
+      return;
+    }
+    // Only the audio is needed — release the video track immediately
+    // instead of holding a screen-recording feed open for nothing.
+    stream.getVideoTracks().forEach((t) => t.stop());
+    audioTracks[0].addEventListener("ended", stopCapture);
+
+    const controller = createStreamReactiveController(stream, {
+      onError: (e) => setErr(e?.message || "Audio analysis failed"),
+    });
+    captureCtrlRef.current = { controller, stream };
+    await controller.start();
+    setCapturing(true);
+  }
 
   // Some browsers (Safari in particular) report an empty or unreliable
   // File.type for certain containers — .m4a is the common case, since it's
@@ -118,6 +242,7 @@ export default function AudioReactiveController({
   // src has actually landed on the <audio> element.
   function playSrc(newSrc) {
     ctrlRef.current?.stop();
+    stopCapture();
     setErr("");
     autoPlayRef.current = true;
     setSrc(newSrc);
@@ -148,6 +273,7 @@ export default function AudioReactiveController({
       setPlaying(false);
       return;
     }
+    stopCapture();
     try {
       await el.play(); // user gesture — unlocks audio + AudioContext
       await ctrlRef.current?.start();
@@ -168,15 +294,15 @@ export default function AudioReactiveController({
       {/* Stable element so the Web Audio source node stays valid across toggles */}
       <audio ref={audioRef} src={src} loop hidden />
       {active && (
-        <div
-          style={{
-            display: "flex",
-            gap: 10,
-            alignItems: "center",
-            flexWrap: "wrap",
-            marginTop: 10,
-          }}
-        >
+        <div style={{ marginTop: 10 }}>
+          <div
+            style={{
+              display: "flex",
+              gap: 10,
+              alignItems: "center",
+              flexWrap: "wrap",
+            }}
+          >
           {/* One control, not two: picking a track and playing it are the
               same action, so this is a single pill — play/pause on the
               left, track picker on the right — instead of two separate
@@ -318,9 +444,66 @@ export default function AudioReactiveController({
           >
             🎼 Complete the Challenge
           </a>
+          </div>
+
+          {/* Lets a visitor's own music — Spotify, Apple Music, anything —
+              drive the visualizer without uploading a file. Can't read
+              those streams directly (DRM), so instead this captures
+              whatever's already playing out loud from a shared tab/screen,
+              the same way a microphone would. A divider + real breathing
+              room (not just a small margin) separates this from the
+              local-track controls above so the two read as distinct
+              options, not one crowded row — picking a local/bundled track
+              or starting a capture are mutually exclusive, each stops the
+              other. */}
+          <div
+            style={{
+              borderTop: "1px solid rgba(255,255,255,0.12)",
+              marginTop: 22,
+              paddingTop: 18,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "flex-start",
+              gap: 6,
+            }}
+          >
+            <span
+              style={{
+                fontSize: 11,
+                letterSpacing: "0.06em",
+                textTransform: "uppercase",
+                opacity: 0.55,
+              }}
+            >
+              Or use what&rsquo;s already playing
+            </span>
+            <span style={{ fontSize: 12, opacity: 0.75 }}>
+              {capturing
+                ? "🔴 Listening to the shared tab's audio — play anything there and the visuals will follow."
+                : "Shares a browser tab's audio, not your camera or mic — pick the tab with your music and check \"share tab audio.\""}
+            </span>
+            <button
+              onClick={capturing ? stopCapture : startCapture}
+              title="Opens your browser's own tab-sharing picker — not a camera or microphone request. Pick the tab with your music and check its audio option."
+              style={{
+                padding: "6px 14px",
+                borderRadius: 10,
+                border: "1px solid rgba(255,255,255,0.15)",
+                background: capturing ? "rgba(248,113,113,0.28)" : "rgba(103,232,249,0.16)",
+                color: "#fff",
+                cursor: "pointer",
+                fontSize: 13,
+                fontFamily: "inherit",
+              }}
+            >
+              {capturing ? "⏹ Stop Capturing" : "🖥️ Capture Tab Audio"}
+            </button>
+          </div>
 
           {err && (
-            <span style={{ color: "#f87171", fontSize: 12 }}>{err}</span>
+            <div style={{ marginTop: 10 }}>
+              <span style={{ color: "#f87171", fontSize: 12 }}>{err}</span>
+            </div>
           )}
         </div>
       )}
