@@ -18,6 +18,7 @@ const VOICE_STYLE_LABELS = {
   strands: "Strands",
   particles: "Particles",
   harmonics: "Harmonics",
+  ripples: "Ripples",
   off: "Off",
 };
 

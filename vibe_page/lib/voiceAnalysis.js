@@ -586,13 +586,22 @@ export function createVoiceAnalyzer(ctx) {
         frame.brightness += (b - frame.brightness) * 0.15;
       }
 
-      // Breath/consonants: unpitched energy above 4kHz. In a live mix hats
-      // live up there too, so it only counts right around sung notes.
+      // Breath/consonants: unpitched noise above 4kHz, measured RELATIVE to
+      // the sung vowel. A voice has airy high-frequency sound during every
+      // vowel, and a live mix has hi-hats up there too, so the absolute level
+      // says little. An "s", "sh" or "t" is a burst of noise while the vowel
+      // dips: on the test song, consonants measured ~+5dB against the vowel
+      // and vowels ~-24dB (-36dB from a stem).
       let ne = 0;
       for (let i = breathLo; i < N; i++) ne += noise[i] * noise[i];
       const breathDb = 20 * Math.log10(Math.sqrt(ne) + 1e-9);
-      const nearVoice = mode === "stem" || sinceVoiced < 24;
-      const breathTarget = nearVoice ? clamp01((breathDb + 62) / 30) : 0;
+      let breathTarget = 0;
+      if (held && energy > 0) {
+        breathTarget = clamp01((breathDb - 20 * Math.log10(Math.sqrt(energy)) + 6) / 12);
+      } else if (mode === "stem") {
+        // Between notes a stem holds only breaths and consonants anyway
+        breathTarget = clamp01((breathDb + 62) / 30);
+      }
       frame.breath += (breathTarget - frame.breath) * (breathTarget > frame.breath ? 0.6 : 0.15);
 
       frame.source = mode;
