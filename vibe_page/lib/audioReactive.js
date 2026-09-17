@@ -22,7 +22,12 @@
 // detection, and dispatches events. `buildSource` is the only thing that
 // differs between a local <audio> element and a captured MediaStream —
 // everything downstream of "we have a Web Audio source node" is identical.
+const VOICE_LO_HZ = 180;
+const VOICE_HI_HZ = 4000;
+const VOICE_BANDS = 6; // log-spaced slices of the vocal range, low -> high
+
 function createReactiveController({ buildSource, toDestination, onDispose, onError }) {
+  const voiceBands = new Float32Array(VOICE_BANDS);
   let ctx = null;
   let source = null;
   let analyser = null;
@@ -96,6 +101,34 @@ function createReactiveController({ buildSource, toDestination, onDispose, onErr
     rightAnalyser.getByteFrequencyData(dataR);
     window.__audioFreqL = dataL;
     window.__audioFreqR = dataR;
+
+    // Vocal isolation (heuristic, not true stem separation — that needs an
+    // ML model): lead vocals sit in roughly the 180Hz–4kHz fundamental +
+    // formant range AND are almost always mixed dead center, while pads,
+    // guitars, reverb tails etc. tend to be spread across the stereo field.
+    // So each bin in the vocal range is weighted by how identical its left
+    // and right levels are. Kick/bass are also centered but live below the
+    // range cut-off. Mono sources come out as centerness=1 everywhere,
+    // which degrades gracefully to a plain vocal-range band-pass.
+    const binHz = ctx.sampleRate / analyser.fftSize;
+    const vLo = Math.max(1, Math.round(VOICE_LO_HZ / binHz));
+    const vHi = Math.min(data.length - 1, Math.round(VOICE_HI_HZ / binHz));
+    const ratio = Math.pow(vHi / vLo, 1 / VOICE_BANDS);
+    let voiceTotal = 0;
+    for (let b = 0; b < VOICE_BANDS; b++) {
+      const lo = Math.round(vLo * Math.pow(ratio, b));
+      const hi = Math.max(lo + 1, Math.round(vLo * Math.pow(ratio, b + 1)));
+      let sum = 0;
+      for (let i = lo; i < hi; i++) {
+        const l = dataL[i], r = dataR[i];
+        const center = l + r > 0 ? 1 - Math.abs(l - r) / (l + r) : 0;
+        sum += (data[i] / 255) * center * center;
+      }
+      voiceBands[b] = sum / (hi - lo);
+      voiceTotal += voiceBands[b];
+    }
+    window.__voiceBands = voiceBands;
+    window.__voiceLevel = voiceTotal / VOICE_BANDS;
 
     // Low band (kick/bass) drives the "beat". Skip bin 0 (DC offset).
     let bass = 0;
@@ -185,6 +218,8 @@ function createReactiveController({ buildSource, toDestination, onDispose, onErr
       ctx = source = analyser = splitter = leftAnalyser = rightAnalyser = null;
       delete window.__audioFreqL;
       delete window.__audioFreqR;
+      delete window.__voiceBands;
+      delete window.__voiceLevel;
       onDispose?.();
     },
   };
