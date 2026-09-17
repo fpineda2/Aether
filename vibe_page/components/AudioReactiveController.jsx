@@ -12,6 +12,14 @@ import {
   createAudioReactiveController,
   createStreamReactiveController,
 } from "../lib/audioReactive";
+import { VOICE_STYLES, VOICE_STYLE_KEY } from "./VoiceVisualizer";
+
+const VOICE_STYLE_LABELS = {
+  strands: "Strands",
+  particles: "Particles",
+  harmonics: "Harmonics",
+  off: "Off",
+};
 
 // Bundled demo tracks, so visitors without their own audio file can still try
 // the visualizer. Hardcoded rather than fetched from an API route: this list
@@ -43,6 +51,25 @@ export default function AudioReactiveController({
   const [err, setErr] = useState("");
   const [pickerOpen, setPickerOpen] = useState(false);
   const [hoveredFile, setHoveredFile] = useState(null);
+  const [voiceStyle, setVoiceStyle] = useState("strands");
+
+  // Read the remembered voice style after mount (localStorage isn't
+  // available during SSR, and reading it in useState's initializer would
+  // mismatch the server-rendered markup).
+  useEffect(() => {
+    try {
+      const s = localStorage.getItem(VOICE_STYLE_KEY);
+      if (VOICE_STYLES.includes(s)) setVoiceStyle(s);
+    } catch (e) {}
+  }, []);
+
+  function pickVoiceStyle(s) {
+    setVoiceStyle(s);
+    try {
+      localStorage.setItem(VOICE_STYLE_KEY, s);
+    } catch (e) {}
+    window.dispatchEvent(new CustomEvent("voice-style", { detail: s }));
+  }
 
   // Picking a track sets `autoPlayRef` and lets this effect do the actual
   // play() call, once React has committed the new `src` to the <audio>
@@ -444,6 +471,55 @@ export default function AudioReactiveController({
           >
             🎼 Complete the Challenge
           </a>
+          </div>
+
+          {/* The vocal ribbon (components/VoiceVisualizer.jsx) — its own
+              section because it follows the singer, not the beat. */}
+          <div
+            style={{
+              marginTop: 16,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "flex-start",
+              gap: 6,
+            }}
+          >
+            <span style={{ fontSize: 12, opacity: 0.75 }}>
+              🎤 Voice visuals &mdash; follows the vocals, not the beat
+            </span>
+            <span style={{ fontSize: 11, opacity: 0.6, maxWidth: 320, lineHeight: 1.4 }}>
+              The demo tracks are instrumental, so here it traces the lead
+              melody instead. For the full effect, use your own track or
+              capture a song with vocals.
+            </span>
+            <div
+              style={{
+                display: "flex",
+                borderRadius: 10,
+                border: "1px solid rgba(255,255,255,0.15)",
+                overflow: "hidden",
+              }}
+            >
+              {VOICE_STYLES.map((s, i) => (
+                <button
+                  key={s}
+                  onClick={() => pickVoiceStyle(s)}
+                  aria-pressed={voiceStyle === s}
+                  style={{
+                    padding: "5px 11px",
+                    border: "none",
+                    borderLeft: i ? "1px solid rgba(255,255,255,0.15)" : "none",
+                    background: voiceStyle === s ? "rgba(236,72,153,0.32)" : "transparent",
+                    color: "#fff",
+                    cursor: "pointer",
+                    fontSize: 12,
+                    fontFamily: "inherit",
+                  }}
+                >
+                  {VOICE_STYLE_LABELS[s]}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Lets a visitor's own music — Spotify, Apple Music, anything —

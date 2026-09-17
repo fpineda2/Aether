@@ -11,6 +11,7 @@ import BootWrapper from "../components/BootWrapper";
 // touch window/document immediately on mount.
 const CursorWrapper = dynamic(() => import("../components/CursorWrapper"), { ssr: false });
 const AudioReactiveStarfield = dynamic(() => import("../components/AudioReactiveStarfield"), { ssr: false });
+const VoiceVisualizer = dynamic(() => import("../components/VoiceVisualizer"), { ssr: false });
 
 // Rough device-capability heuristic for scaling particle-heavy background
 // effects. No single signal is reliable on its own (deviceMemory is
@@ -263,6 +264,7 @@ export default function RootLayout({ children }) {
             to be running. */}
         {entered && <CursorWrapper />}
         {entered && <AudioReactiveStarfield starsRef={starsRef} />}
+        {entered && <VoiceVisualizer />}
 
         <BootWrapper onEntered={() => setEntered(true)}>{children}</BootWrapper>
 
