@@ -1,16 +1,23 @@
 // components/VoiceVisualizer.jsx
 // Gives the artist's VOICE its own visual, separate from the beat-driven
-// starfield/web: a horizontal ribbon across the middle of the screen whose
-// shape is sculpted by the voice lib/voiceAnalysis.js reads out of the audio
-// (window.__voiceBands — six log-spaced slices of ~180Hz–4kHz — plus the
-// sung pitch in window.__voicePitch). The analysis only opens the bands up
-// while a voice is actually sounding, so between phrases the ribbon settles
-// to a thin thread instead of dancing to the drums.
+// starfield/web: a trail of the last few seconds of singing, drawn across
+// the middle of the screen from what lib/voiceAnalysis.js follows
+// (window.__voiceFrame). Meant to be readable without hearing it:
+//   - height      = the sung pitch, so a melody visibly rises, falls, slides,
+//                   holds, and shimmers with vibrato
+//   - thickness   = how strongly it's sung — syllables, swells, fades
+//   - color       = the vowel: cool and deep for "oo"/"oh", warm and bright
+//                   for "ah"/"ee"
+//   - sparkle     = breath and consonants ("s", "sh", "t")
+// A glowing head marks "now"; older singing drifts left and fades. Between
+// phrases the trail simply goes dark rather than inventing motion.
 //
-// Three styles, picked from the visualizer controls:
-//   - "strands":   layered lines fanning out like a sound ribbon
-//   - "particles": a twisting 3D ribbon drawn as dots
-//   - "harmonics": mirrored bell-shaped bumps, one per vocal band
+// Three styles, picked from the visualizer controls, all drawing that same
+// trail:
+//   - "strands":   a braided ribbon of fine lines
+//   - "particles": a twisting ribbon of dots
+//   - "harmonics": the voice's actual overtones as stacked contour lines —
+//                  which ones glow shows the timbre of each vowel
 //   - "off"
 // The choice arrives as a `voice-style` CustomEvent and is remembered per
 // browser in localStorage.
@@ -28,28 +35,36 @@ import { useEffect } from "react";
 export const VOICE_STYLES = ["strands", "particles", "harmonics", "off"];
 export const VOICE_STYLE_KEY = "aether.voiceStyle";
 
-// Per-band attack/decay: syllables should bloom in fast but release a little
-// slower, so the ribbon reads as a sung phrase instead of flickering noise.
-const ATTACK = 0.35;
-const DECAY = 0.08;
+const SAMPLES = 270; // ~4.5s of trail at 60fps
+const HARMS = 12;
+const DRAWN_HARMONICS = 8;
 
-// Spatial frequency (cycles across the ribbon) each vocal band contributes —
-// low voice = broad swells, high voice = tighter ripples.
-const BAND_CYCLES = [1.2, 2.1, 3.2, 4.6, 6.4, 8.5];
+// Two palettes, blended by vowel brightness. Each is [back, front] hues.
+// Hues may run past 360 on purpose: blends are linear, so cyan (190) to
+// amber (378 = 18) travels through violet and magenta instead of green.
+const DARK_VOWEL = [265, 190]; // violet, cyan
+const BRIGHT_VOWEL = [378, 325]; // amber, rose
 
-// Hue stops across the ribbon, left -> right (cyan, violet, magenta, orange, gold)
-const RIBBON_HUES = [190, 265, 320, 380, 410];
+// Hue drift along the trail for the dotted ribbon, oldest -> newest
+// (cyan, violet, magenta, orange, gold)
+const TRAIL_HUES = [190, 265, 320, 380, 410];
 
-function ribbonHue(u) {
-  const p = u * (RIBBON_HUES.length - 1);
-  const i = Math.min(RIBBON_HUES.length - 2, Math.floor(p));
-  const h = RIBBON_HUES[i] + (RIBBON_HUES[i + 1] - RIBBON_HUES[i]) * (p - i);
-  return h % 360;
+// Unwrapped (190..410) so blends with it stay on the violet/magenta side too
+function trailHue(u) {
+  const p = u * (TRAIL_HUES.length - 1);
+  const i = Math.min(TRAIL_HUES.length - 2, Math.floor(p));
+  return TRAIL_HUES[i] + (TRAIL_HUES[i + 1] - TRAIL_HUES[i]) * (p - i);
 }
 
-// Tapers the ribbon to a point at both ends, like the reference images.
-function taper(u) {
-  return Math.pow(Math.sin(Math.PI * u), 1.6);
+// Linear hue blend (see DARK_VOWEL/BRIGHT_VOWEL for why not shortest-path)
+function mixHue(a, b, t) {
+  return (a + (b - a) * t) % 360;
+}
+
+// Cheap deterministic noise so breath sparkle doesn't shimmer randomly per frame
+function hash(n) {
+  const x = Math.sin(n * 127.1) * 43758.5453;
+  return x - Math.floor(x);
 }
 
 function readStoredStyle() {
@@ -91,147 +106,247 @@ export default function VoiceVisualizer() {
     resize();
     window.addEventListener("resize", resize);
 
+    // Trail ring buffers. `head` is the index of the newest sample.
+    const logPitch = new Float32Array(SAMPLES); // log2(Hz), raw — normalized at draw time
+    const loud = new Float32Array(SAMPLES);
+    const voiced = new Float32Array(SAMPLES);
+    const bright = new Float32Array(SAMPLES);
+    const breath = new Float32Array(SAMPLES);
+    const harm = new Float32Array(SAMPLES * HARMS);
+    let head = 0;
+    let filled = 0;
+    let serial = 0; // total samples ever pushed, for stable per-sample noise
+
+    // The singer's range, so a melody that moves a few notes still fills
+    // the space. Expands immediately to include a new note, relaxes back
+    // slowly, and never gets narrower than 3/4 of an octave.
+    let rangeLo = Math.log2(160);
+    let rangeHi = Math.log2(480);
+
     let style = readStoredStyle();
     let raf = null;
     let active = false;
     let t = 0;
-    let presence = 0; // eased overall vocal level, drives global amplitude/brightness
-    let peak = 0.4; // slow-following loudness ceiling, gentle auto-gain for quiet vocals
-    const bands = new Float32Array(BAND_CYCLES.length);
-    let pitchScale = 1; // eased: low notes stretch the ripples wide, high notes tighten them
 
-    // Sum of each band's sine at position u, for strand/phase offset `off`.
-    // Normalized by the bands' total so a full, loud voice reshapes the
-    // ribbon rather than just blowing its height out — overall size is
-    // `amp`'s job (driven by presence), this only decides the shape.
-    const wave = (u, off) => {
-      let y = 0;
-      let total = 0.35;
-      for (let k = 0; k < bands.length; k++) {
-        y += bands[k] * Math.sin(2 * Math.PI * BAND_CYCLES[k] * pitchScale * u + t * (0.6 + k * 0.25) + off * (1 + k * 0.35));
-        total += bands[k];
+    const push = () => {
+      const f = window.__voiceFrame;
+      head = (head + 1) % SAMPLES;
+      filled = Math.min(SAMPLES, filled + 1);
+      serial++;
+      const lastPitch = logPitch[(head - 1 + SAMPLES) % SAMPLES];
+      if (f && f.pitch > 0) {
+        logPitch[head] = Math.log2(f.pitch);
+        loud[head] = f.loudness;
+        voiced[head] = f.voiced;
+        // The analysis reports ~0.25 ("oo") to ~0.75 ("ee") in practice;
+        // stretch that to the full palette so vowel changes are visible.
+        bright[head] = Math.min(1, Math.max(0, (f.brightness - 0.25) / 0.5));
+        breath[head] = f.breath;
+        for (let h = 0; h < HARMS; h++) harm[head * HARMS + h] = f.harmonics[h];
+        if (f.voiced > 0.5) {
+          const lp = logPitch[head];
+          rangeLo = lp < rangeLo ? rangeLo + (lp - 0.15 - rangeLo) * 0.3 : rangeLo + (lp - 0.5 - rangeLo) * 0.002;
+          rangeHi = lp > rangeHi ? rangeHi + (lp + 0.15 - rangeHi) * 0.3 : rangeHi + (lp + 0.5 - rangeHi) * 0.002;
+        }
+      } else {
+        logPitch[head] = lastPitch || Math.log2(260);
+        loud[head] = 0;
+        voiced[head] = 0;
+        bright[head] = bright[(head - 1 + SAMPLES) % SAMPLES];
+        breath[head] = f ? f.breath : 0;
+        for (let h = 0; h < HARMS; h++) harm[head * HARMS + h] = 0;
       }
-      return y / total;
+      if (rangeHi - rangeLo < 0.75) {
+        const mid = (rangeHi + rangeLo) / 2;
+        rangeLo = mid - 0.375;
+        rangeHi = mid + 0.375;
+      }
     };
 
-    const drawStrands = (cy, amp, left, span) => {
-      const LINES = 12;
-      const STEPS = 160;
-      for (let m = 0; m < LINES; m++) {
-        const f = m / (LINES - 1); // 0 = back strand, 1 = front strand
-        // back strands warm (orange), front strand cool (cyan). Mixed in RGB,
-        // not by hue — sweeping the hue wheel from orange to cyan passes
-        // through a muddy yellow-green on the middle strands.
-        const r = Math.round(255 + (70 - 255) * f);
-        const g = Math.round(110 + (220 - 110) * f);
-        const b = Math.round(60 + (255 - 60) * f);
-        ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${(0.25 + f * 0.65) * (0.4 + presence * 0.6)})`;
-        ctx.lineWidth = m === LINES - 1 ? 2 : 1;
+    // Geometry for the sample `age` frames old (0 = newest).
+    const left = () => W * 0.05;
+    const headX = () => W * 0.78;
+    const xAt = (age) => headX() - (age / (SAMPLES - 1)) * (headX() - left());
+    const yOf = (lp) => {
+      const n = (lp - rangeLo) / (rangeHi - rangeLo); // 0 low .. 1 high
+      return H * 0.5 + (0.5 - n) * H * 0.6;
+    };
+    const idx = (age) => (head - age + SAMPLES) % SAMPLES;
+
+    // Soft luminous body along the pitch line, under the detailed layers
+    const drawGlow = () => {
+      const STEP = 3;
+      ctx.lineCap = "round";
+      for (let age = filled - 1; age >= STEP; age -= STEP) {
+        const a1 = age - STEP;
+        const i1 = idx(a1);
+        if (voiced[i1] < 0.02) continue;
+        const fade = Math.pow(1 - a1 / SAMPLES, 0.9);
+        const hue = mixHue(DARK_VOWEL[1], BRIGHT_VOWEL[0], bright[i1]);
+        ctx.strokeStyle = `hsla(${hue}, 90%, 55%, ${voiced[i1] * (0.015 + 0.05 * loud[i1]) * fade})`;
+        ctx.lineWidth = H * (0.008 + 0.06 * loud[i1]);
         ctx.beginPath();
-        for (let s = 0; s <= STEPS; s++) {
-          const u = s / STEPS;
-          const y = cy + taper(u) * amp * wave(u, f * 1.4);
-          const x = left + u * span + (1 - f) * 12; // slight stagger adds depth
-          s === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+        let started = false;
+        for (let age2 = age; age2 >= a1; age2--) {
+          if (voiced[idx(age2)] < 0.05) continue;
+          const x = xAt(age2);
+          const y = yOf(logPitch[idx(age2)]);
+          started ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+          started = true;
         }
         ctx.stroke();
       }
+      ctx.lineCap = "butt";
     };
 
-    const drawParticles = (cy, amp, left, span) => {
-      const LINES = 14;
-      const STEPS = 150;
-      const halfWidth = 0.3 + presence * 0.15; // ribbon width, relative to amp
+    const drawStrands = () => {
+      const LINES = 9;
+      const STEP = 3; // samples per stroke segment (color changes per segment)
+      const n = filled;
+      drawGlow();
       for (let m = 0; m < LINES; m++) {
-        const across = (m / (LINES - 1)) * Math.PI; // position across the ribbon's width
-        for (let s = 0; s <= STEPS; s++) {
-          const u = s / STEPS;
-          const env = taper(u);
-          // A flat ribbon following the vocal waveform, twisting along its
-          // length: where cos(phi) crosses zero the ribbon is seen edge-on
-          // and pinches to a thread, like the reference image.
-          const phi = across + u * 3 + t * 0.4;
-          const depth = 0.5 + 0.5 * Math.sin(phi); // 0 = far, 1 = near
-          const y = cy + env * amp * (wave(u, 0) + halfWidth * Math.cos(phi));
-          const x = left + u * span + Math.sin(phi) * 10; // slant the dot rows for depth
-          const r = (0.6 + depth * 1.3) * (0.6 + env * 0.6);
-          ctx.fillStyle = `hsla(${ribbonHue(u)}, 85%, ${50 + depth * 22}%, ${(0.25 + depth * 0.7) * (0.35 + presence * 0.65)})`;
+        const f = m / (LINES - 1);
+        for (let age = n - 1; age >= STEP; age -= STEP) {
+          const a0 = age, a1 = age - STEP;
+          const i1 = idx(a1);
+          const presence = voiced[i1];
+          if (presence < 0.02) continue;
+          const fade = Math.pow(1 - a1 / SAMPLES, 0.9);
+          const alpha = presence * (0.3 + 0.7 * loud[i1]) * fade * (0.4 + 0.6 * f);
+          if (alpha < 0.01) continue;
+          const pal = [
+            mixHue(DARK_VOWEL[0], BRIGHT_VOWEL[0], bright[i1]),
+            mixHue(DARK_VOWEL[1], BRIGHT_VOWEL[1], bright[i1]),
+          ];
+          ctx.strokeStyle = `hsla(${mixHue(pal[0], pal[1], f)}, 90%, ${58 + f * 14}%, ${alpha})`;
+          ctx.lineWidth = m === LINES - 1 ? 2.4 : 1.2;
           ctx.beginPath();
-          ctx.arc(x, y, r, 0, Math.PI * 2);
-          ctx.fill();
-        }
-      }
-    };
-
-    const drawHarmonics = (cy, amp, left, span) => {
-      const LAYERS = 10;
-      const STEPS = 200;
-      const K = bands.length;
-      const grad = ctx.createLinearGradient(left, 0, left + span, 0);
-      for (let i = 0; i < RIBBON_HUES.length; i++) {
-        grad.addColorStop(i / (RIBBON_HUES.length - 1), `hsl(${RIBBON_HUES[i] % 360}, 90%, 65%)`);
-      }
-      ctx.strokeStyle = grad;
-      for (let l = 1; l <= LAYERS; l++) {
-        const scale = l / LAYERS;
-        ctx.globalAlpha = (0.15 + scale * 0.6) * (0.35 + presence * 0.65);
-        ctx.lineWidth = l === LAYERS ? 1.6 : 0.8;
-        for (const dir of [-1, 0.55]) { // tall bumps above the axis, shorter mirror below
-          ctx.beginPath();
-          for (let s = 0; s <= STEPS; s++) {
-            const u = s / STEPS;
-            let y = 0;
-            for (let k = 0; k < K; k++) {
-              const c = (k + 0.5) / K;
-              const g = Math.exp(-Math.pow((u - c) * K * 3.6, 2)); // narrow: distinct bumps, flat axis between
-              // a gentle breathing sway so the bumps don't sit frozen between syllables
-              y += g * (bands[k] + 0.02) * (0.85 + 0.15 * Math.sin(t * 1.3 + k));
-            }
-            const x = left + u * span;
-            const yy = cy + dir * y * amp * 0.9 * scale;
-            s === 0 ? ctx.moveTo(x, yy) : ctx.lineTo(x, yy);
+          let started = false;
+          for (let age2 = a0; age2 >= a1; age2--) {
+            const i = idx(age2);
+            // Don't connect back to the previous phrase's last note
+            if (voiced[i] < 0.05) continue;
+            const th = H * (0.006 + 0.08 * loud[i]);
+            // Strands braid around the pitch line; the braid drifts slowly
+            // along the trail so held notes still feel alive.
+            const phase = m * 0.7 + (serial - age2) * 0.045 - t * (reducedMotion ? 0.3 : 0.9);
+            const fray = breath[i] * H * 0.012 * (hash((serial - age2) * 13 + m) - 0.5);
+            const y = yOf(logPitch[i]) + Math.sin(phase) * th + fray;
+            const x = xAt(age2);
+            started ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+            started = true;
           }
           ctx.stroke();
         }
       }
-      ctx.globalAlpha = 1;
+    };
+
+    const drawParticles = () => {
+      const ROWS = 7;
+      drawGlow();
+      for (let age = filled - 1; age >= 0; age--) {
+        const i = idx(age);
+        const presence = voiced[i];
+        const fade = Math.pow(1 - age / SAMPLES, 0.9);
+        const x0 = xAt(age);
+        const yc = yOf(logPitch[i]);
+        const u = 1 - age / (SAMPLES - 1);
+        // Trail hue, pulled toward amber for bright vowels or deep blue for dark ones
+        const hue = mixHue(trailHue(u), bright[i] > 0.5 ? 390 : 230, Math.min(1, Math.abs(bright[i] - 0.5) * 1.2));
+        if (presence > 0.02) {
+          const th = H * (0.008 + 0.075 * loud[i]);
+          for (let r = 0; r < ROWS; r++) {
+            // Rows wrap around the pitch line like a twisting ribbon.
+            const phi = (r / (ROWS - 1)) * Math.PI + (serial - age) * 0.05 - t * (reducedMotion ? 0.2 : 0.6);
+            const depth = 0.5 + 0.5 * Math.sin(phi);
+            const y = yc + Math.cos(phi) * th;
+            const x = x0 + Math.sin(phi) * 3;
+            const rad = (0.7 + depth * 1.5) * (0.6 + loud[i] * 0.9);
+            const alpha = presence * (0.3 + 0.7 * depth) * (0.4 + 0.6 * loud[i]) * fade;
+            ctx.fillStyle = `hsla(${hue}, 85%, ${52 + depth * 22}%, ${alpha})`;
+            ctx.beginPath();
+            ctx.arc(x, y, rad, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+        // Breath: a loose spray of fine dots around the line
+        const sprays = Math.floor(breath[i] * 4);
+        for (let s = 0; s < sprays; s++) {
+          const k = (serial - age) * 7 + s;
+          const y = yc + (hash(k) - 0.5) * H * 0.09;
+          const x = x0 + (hash(k + 3) - 0.5) * 8;
+          ctx.fillStyle = `hsla(${hue}, 60%, 85%, ${0.35 * breath[i] * fade})`;
+          ctx.fillRect(x, y, 1.2, 1.2);
+        }
+      }
+    };
+
+    const drawHarmonics = () => {
+      const gap = H * 0.03;
+      const STEP = 3;
+      for (let h = 0; h < DRAWN_HARMONICS; h++) {
+        const hue = (300 + h * 40) % 360; // magenta, red, orange, gold, green, teal, blue, violet
+        for (const side of [-1, 1]) {
+          for (let age = filled - 1; age >= STEP; age -= STEP) {
+            const a1 = age - STEP;
+            const i1 = idx(a1);
+            // Square root so quieter upper overtones still read — they're
+            // what distinguishes one vowel's timbre from another.
+            const strength = Math.sqrt(harm[i1 * HARMS + h]);
+            const presence = voiced[i1];
+            if (presence < 0.02 || strength < 0.15) continue;
+            const fade = Math.pow(1 - a1 / SAMPLES, 0.9);
+            const alpha = presence * (0.15 + 0.85 * strength) * (0.4 + 0.6 * loud[i1]) * fade * (side < 0 ? 1 : 0.5);
+            ctx.strokeStyle = `hsla(${hue}, 90%, ${60 + strength * 15}%, ${alpha})`;
+            ctx.lineWidth = 0.6 + strength * 2.2 * (side < 0 ? 1 : 0.6);
+            ctx.beginPath();
+            let started = false;
+            for (let age2 = age; age2 >= a1; age2--) {
+              const i = idx(age2);
+              if (voiced[i] < 0.05) continue;
+              // Overtones stack above the note and mirror more tightly below;
+              // they spread apart as the voice gets stronger.
+              const spread = gap * (0.6 + loud[i] * 0.8) * (side < 0 ? 1 : 0.55);
+              const y = yOf(logPitch[i]) + side * h * spread;
+              const x = xAt(age2);
+              started ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+              started = true;
+            }
+            ctx.stroke();
+          }
+        }
+      }
+    };
+
+    const drawHead = () => {
+      const i = idx(0);
+      const presence = voiced[i];
+      if (presence < 0.02) return;
+      const x = headX();
+      const y = yOf(logPitch[i]);
+      const r = H * (0.012 + 0.05 * loud[i]);
+      const hue = mixHue(DARK_VOWEL[1], BRIGHT_VOWEL[1], bright[i]);
+      const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+      g.addColorStop(0, `hsla(${hue}, 100%, 88%, ${0.55 * presence})`);
+      g.addColorStop(0.35, `hsla(${hue}, 100%, 65%, ${0.25 * presence})`);
+      g.addColorStop(1, `hsla(${hue}, 100%, 50%, 0)`);
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fill();
     };
 
     const frame = () => {
-      const src = window.__voiceBands;
-      const level = window.__voiceLevel || 0;
-      // The analysis already normalizes the bands, so this only lifts a
-      // quiet vocal a little — a low floor would amplify faint leftovers
-      // from the instruments into a full-size ribbon.
-      peak = Math.max(level, peak * 0.997, 0.4);
-      const gain = 1 / peak;
-      for (let k = 0; k < bands.length; k++) {
-        const target = src ? Math.min(1.2, src[k] * gain) : 0;
-        bands[k] += (target - bands[k]) * (target > bands[k] ? ATTACK : DECAY);
-      }
-      // Map the sung pitch (roughly 90Hz bass to 900Hz soprano, on a log
-      // scale like the ear hears it) to how tightly the ribbon ripples.
-      // Holds its last value between phrases instead of snapping back.
-      const hz = window.__voicePitch || 0;
-      if (hz > 0) {
-        const n = Math.min(1, Math.max(0, Math.log(hz / 90) / Math.log(10)));
-        pitchScale += (0.7 + n * 0.9 - pitchScale) * 0.08;
-      }
-      const p = Math.min(1, level * gain);
-      presence += (p - presence) * (p > presence ? 0.2 : 0.05);
-      t += reducedMotion ? 0.012 : 0.03;
+      push();
+      t += 1 / 60;
 
       ctx.clearRect(0, 0, W, H);
       if (style !== "off") {
-        const left = W * 0.06;
-        const span = W * 0.88;
-        const cy = H * 0.5;
-        // small idle amplitude keeps a living thread on screen between phrases
-        const amp = H * (0.05 + presence * 0.2);
         ctx.globalCompositeOperation = "lighter";
-        if (style === "strands") drawStrands(cy, amp, left, span);
-        else if (style === "particles") drawParticles(cy, amp, left, span);
-        else if (style === "harmonics") drawHarmonics(cy, amp, left, span);
+        if (style === "strands") drawStrands();
+        else if (style === "particles") drawParticles();
+        else if (style === "harmonics") drawHarmonics();
+        drawHead();
         ctx.globalCompositeOperation = "source-over";
       }
 
@@ -246,8 +361,7 @@ export default function VoiceVisualizer() {
       active = false;
       if (raf) cancelAnimationFrame(raf);
       raf = null;
-      bands.fill(0);
-      presence = 0;
+      filled = 0;
       ctx.clearRect(0, 0, W, H);
     };
     const onStyle = (e) => {
