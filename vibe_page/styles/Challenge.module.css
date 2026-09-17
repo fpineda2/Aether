@@ -1,0 +1,335 @@
+/* styles/Challenge.module.css — the "Score Aether" open challenge page.
+   Sits on top of the site's existing cosmic-gradient/starfield background
+   (rendered globally in app/layout.js), so this only needs its own panels
+   and typography, not another background layer. */
+
+.page {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 72px 24px 120px;
+  position: relative;
+  z-index: 1;
+}
+
+.eyebrow {
+  font-family: var(--font-heading);
+  font-style: italic;
+  font-size: 15px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #67e8f9;
+  margin: 0 0 14px;
+}
+
+.title {
+  font-family: var(--font-display);
+  font-size: clamp(2.2rem, 5vw, 3.2rem);
+  line-height: 1.08;
+  background: linear-gradient(90deg, #b9a3ff 0%, #8b5cf6 30%, #67e8f9 68%, #ff2ea6 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  letter-spacing: 0.01em;
+  text-wrap: balance;
+}
+
+.dek {
+  font-family: var(--font-heading);
+  font-style: italic;
+  font-weight: 500;
+  font-size: 20px;
+  color: #a7a3c4;
+  margin-top: 16px;
+  max-width: 46ch;
+}
+
+.intro {
+  margin-top: 30px;
+  font-size: 17px;
+  color: #d7d4ec;
+  max-width: 62ch;
+}
+.intro p + p { margin-top: 14px; }
+.intro strong { color: #fff; font-weight: 600; }
+
+.section { margin-top: 76px; }
+
+.sectionHead {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  margin-bottom: 26px;
+  border-bottom: 1px solid rgba(255,255,255,0.12);
+  padding-bottom: 16px;
+}
+.sectionNum {
+  font-family: var(--font-heading);
+  font-style: italic;
+  font-size: 15px;
+  color: #6b678f;
+}
+.sectionTitle {
+  font-family: var(--font-display);
+  font-size: 25px;
+  font-weight: 400;
+  color: #fff;
+}
+
+.lede {
+  font-size: 16px;
+  color: #a7a3c4;
+  max-width: 60ch;
+  margin-bottom: 28px;
+}
+
+/* ---- frequency map ---- */
+.freqbar {
+  height: 14px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, hsl(0,85%,58%) 0%, hsl(90,55%,55%) 33%, hsl(190,70%,58%) 62%, hsl(280,80%,68%) 100%);
+  box-shadow: 0 0 24px rgba(139,92,246,0.35), inset 0 0 0 1px rgba(255,255,255,0.14);
+  margin-bottom: 6px;
+}
+.freqbarLabels {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-heading);
+  font-style: italic;
+  font-size: 13px;
+  color: #6b678f;
+  margin-bottom: 36px;
+}
+
+.bandGrid {
+  display: grid;
+  gap: 2px;
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 14px;
+  overflow: hidden;
+}
+.bandRow {
+  display: grid;
+  grid-template-columns: 30px 1fr auto;
+  gap: 18px;
+  align-items: center;
+  padding: 18px 20px;
+  background: rgba(9,10,22,0.75);
+}
+.bandSwatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  box-shadow: 0 0 14px currentColor;
+}
+.bandName {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 17px;
+  color: #fff;
+}
+.bandRange {
+  font-variant-numeric: tabular-nums;
+  font-size: 12.5px;
+  color: #6b678f;
+  margin-top: 2px;
+}
+.bandRole {
+  font-size: 14px;
+  color: #a7a3c4;
+  margin-top: 6px;
+  max-width: 46ch;
+}
+.bandEnv {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  justify-self: end;
+  min-width: 100px;
+}
+.bandEnvLabel {
+  font-size: 10.5px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: #6b678f;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.callout {
+  margin-top: 24px;
+  padding: 18px 22px;
+  border-left: 2px solid #8b5cf6;
+  background: linear-gradient(90deg, rgba(139,92,246,0.10), transparent 70%);
+  border-radius: 4px 12px 12px 4px;
+  font-size: 14.5px;
+  color: #a7a3c4;
+}
+.callout strong { color: #fff; }
+
+.prose p { color: #d7d4ec; font-size: 16px; max-width: 62ch; }
+.prose p + p { margin-top: 14px; }
+.prose strong { color: #fff; font-weight: 600; }
+.prose em { font-family: var(--font-heading); font-style: italic; color: #67e8f9; }
+
+/* ---- mood bar ---- */
+.moodbar {
+  height: 14px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, hsl(140,55%,50%) 0%, hsl(80,55%,52%) 45%, hsl(26,90%,55%) 100%);
+  box-shadow: 0 0 24px rgba(255,150,60,0.25), inset 0 0 0 1px rgba(255,255,255,0.14);
+  margin: 4px 0 8px;
+}
+.moodbarLabels {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-heading);
+  font-style: italic;
+  font-size: 13px;
+  color: #6b678f;
+  margin-bottom: 14px;
+}
+
+.twohue {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 22px;
+  margin-top: 28px;
+}
+@media (max-width: 620px) { .twohue { grid-template-columns: 1fr; } }
+.hueCard {
+  padding: 20px;
+  background: rgba(9,10,22,0.75);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 14px;
+}
+.hueCard h3 {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 16px;
+  color: #fff;
+  margin: 0 0 8px;
+}
+.hueCard p { font-size: 14px; color: #a7a3c4; margin: 0; }
+
+/* ---- checklist ---- */
+.checklist { list-style: none; margin: 0; padding: 0; }
+.checklist li {
+  display: grid;
+  grid-template-columns: 24px 1fr;
+  gap: 14px;
+  padding: 16px 0;
+  border-top: 1px solid rgba(255,255,255,0.07);
+}
+.checklist li:first-child { border-top: none; }
+.checkMark {
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  border: 1px solid #8b5cf6;
+  display: flex; align-items: center; justify-content: center;
+  color: #67e8f9;
+  font-size: 11px;
+  margin-top: 2px;
+}
+.checklist strong { display: block; color: #fff; font-weight: 600; font-size: 16px; margin-bottom: 4px; }
+.checklist span { color: #a7a3c4; font-size: 14.5px; }
+
+/* ---- submission section ---- */
+.submitCard {
+  margin-top: 24px;
+  padding: 28px;
+  background: linear-gradient(160deg, rgba(139,92,246,0.12), rgba(103,232,249,0.05));
+  border: 1px solid rgba(139,92,246,0.35);
+  border-radius: 16px;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.45);
+}
+.submitCard p { color: #d7d4ec; font-size: 16px; max-width: 58ch; }
+.submitCard p + p { margin-top: 12px; }
+.submitSteps {
+  margin: 20px 0 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: step;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.submitSteps li {
+  counter-increment: step;
+  display: flex;
+  gap: 12px;
+  font-size: 14.5px;
+  color: #a7a3c4;
+}
+.submitSteps li::before {
+  content: counter(step);
+  flex-shrink: 0;
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  background: rgba(139,92,246,0.25);
+  color: #fff;
+  font-size: 12px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-heading);
+}
+.emailButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 24px;
+  padding: 12px 22px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #6a0dad, #8a2be2);
+  color: #fff;
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 15.5px;
+  text-decoration: none;
+  box-shadow: 0 0 18px rgba(138,43,226,0.5);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.emailButton:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 0 24px rgba(138,43,226,0.7);
+}
+
+.practicals {
+  margin-top: 76px;
+  padding-top: 30px;
+  border-top: 1px solid rgba(255,255,255,0.12);
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 26px;
+}
+@media (max-width: 620px) { .practicals { grid-template-columns: 1fr; } }
+.practicals dt {
+  font-family: var(--font-heading);
+  font-style: italic;
+  color: #67e8f9;
+  font-size: 13.5px;
+  margin-bottom: 6px;
+}
+.practicals dd { margin: 0; color: #a7a3c4; font-size: 14px; }
+
+.credit {
+  margin-top: 60px;
+  font-family: var(--font-heading);
+  font-style: italic;
+  color: #6b678f;
+  font-size: 14px;
+  text-align: center;
+}
+
+.backLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-heading);
+  font-style: italic;
+  font-size: 14.5px;
+  color: #a7a3c4;
+  text-decoration: none;
+  margin-bottom: 40px;
+}
+.backLink:hover { color: #67e8f9; }

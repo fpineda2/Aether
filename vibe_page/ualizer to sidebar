@@ -1,0 +1,66 @@
+[1mdiff --git a/vibe_page/app/page.js b/vibe_page/app/page.js[m
+[1mindex f90c60b..1c7e888 100644[m
+[1m--- a/vibe_page/app/page.js[m
+[1m+++ b/vibe_page/app/page.js[m
+[36m@@ -1,6 +1,7 @@[m
+ import SpaceChains from "../components/SpaceChains"[m
+ import BootWrapper from '../components/BootWrapper';[m
+ import SpotifySection from "../components/SpotifySection";[m
+[32m+[m[32mimport InteractiveMode from "../components/InteractiveMode";[m
+ import SpotifyPlayer from "../components/SpotifyPlayer"[m
+ import styles from "../styles/Dashboard.module.css";[m
+ [m
+[36m@@ -54,6 +55,10 @@[m [mexport default function Page() {[m
+             <li><a href="#">Account</a></li>[m
+             <li><a href="#">Privacy</a></li>[m
+           </ul>[m
+[32m+[m
+[32m+[m[32m          <div className="mt-6 pt-6 border-t border-white/10">[m
+[32m+[m[32m            <InteractiveMode />[m
+[32m+[m[32m          </div>[m
+         </aside>[m
+ [m
+         {/* Feed Section */}[m
+[1mdiff --git a/vibe_page/components/SpotifySection.jsx b/vibe_page/components/SpotifySection.jsx[m
+[1mindex 0d6b32d..604b17e 100644[m
+[1m--- a/vibe_page/components/SpotifySection.jsx[m
+[1m+++ b/vibe_page/components/SpotifySection.jsx[m
+[36m@@ -5,7 +5,6 @@[m
+ [m
+ import { useEffect, useState, useRef } from "react";[m
+ import styles from "./SpotifySection.module.css";[m
+[31m-import AudioReactiveController from "./AudioReactiveController";[m
+ [m
+ [m
+ export default function SpotifySection() {[m
+[36m@@ -22,12 +21,7 @@[m [mexport default function SpotifySection() {[m
+   const [selectedPlaylist, setSelectedPlaylist] = useState(null);[m
+   const [playlistTracks, setPlaylistTracks] = useState([]);[m
+   const hasDataRef = useRef(false); // Track if we've gotten data[m
+[31m-  const [interactiveMode, setInteractiveMode] = useState(false);[m
+ [m
+[31m-  // Interactive mode's beat pulses now come from real Web Audio analysis,[m
+[31m-  // handled by <AudioReactiveController>. (Spotify's own stream is DRM-protected[m
+[31m-  // and can't be analyzed in-browser, so the visualizer reacts to a local track.)[m
+[31m-  [m
+   // Listen for device changes from SpotifyPlayer[m
+   useEffect(() => {[m
+     const handleDeviceChange = () => {[m
+[36m@@ -435,17 +429,8 @@[m [mexport default function SpotifySection() {[m
+               <button onClick={fetchCurrent} className={styles.controlBtn} disabled={loading}>[m
+                 Refresh[m
+               </button>[m
+[31m-              <button [m
+[31m-                onClick={() => setInteractiveMode(!interactiveMode)} [m
+[31m-                className={`${styles.controlBtn} ${interactiveMode ? styles.interactiveActive : ''}`}[m
+[31m-                title="Beat-reactive starfield (visualizes a local track)"[m
+[31m-              >[m
+[31m-                {interactiveMode ? "🎵 Interactive ON" : "✨ Interactive Mode"}[m
+[31m-              </button>[m
+             </div>[m
+ [m
+[31m-            <AudioReactiveController active={interactiveMode} />[m
+[31m-[m
+             {loading && !current && <div className={styles.note}>Loading current playback…</div>}[m
+             {current && current.item && ([m
+               <>[m

@@ -1,0 +1,392 @@
+/* components/Intro.module.css
+   Aether boot intro — a portal of sacred geometry blooms open into the mark.
+   Structure: .overlay > .center > .mark (atmosphere + svg wireframe +
+   logo image + flash) + .wordmark
+
+   Key idea: the wireframe DISSOLVES WHILE the logo artwork MATERIALIZES
+   through the same time window (see .wireframeFade / .logoImg delays below —
+   they overlap, they don't hand off), with a brief screen-blend .flash
+   bridging the seam. A separate .portalRing survives that crossfade as a
+   "threshold" frame around the finished mark, and only dilates away when
+   the overlay itself opens.
+*/
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(ellipse at 50% 45%, #0b0620 0%, #050310 45%, #020207 75%, #000000 100%);
+  -webkit-font-smoothing: antialiased;
+  pointer-events: auto;
+  overflow: hidden;
+}
+
+/* "it quietly opens" — the whole intro dissolves away */
+.overlay.opening {
+  animation: openFade 950ms cubic-bezier(.4, 0, .2, 1) forwards;
+  pointer-events: none;
+}
+
+.center {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 22px;
+  z-index: 10001;
+}
+
+/* the mark: a fixed-size stage holding the atmosphere + wireframe + art */
+.mark {
+  position: relative;
+  width: 300px;
+  height: 300px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.mark.blooming {
+  cursor: default;
+}
+
+/* ================= atmosphere: glow + vortex, bleeds past the mark ================= */
+.atmosphere {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.portalGlow {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 640px;
+  height: 640px;
+  margin: -320px 0 0 -320px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(150, 110, 255, 0.55) 0%, rgba(100, 70, 210, 0.30) 32%, rgba(50, 30, 130, 0.14) 56%, transparent 74%);
+  filter: blur(26px);
+  opacity: 0;
+  transform: scale(0.4);
+}
+.mark.blooming .portalGlow {
+  animation: portalGlowBuild 2400ms cubic-bezier(.2, .8, .2, 1) 300ms forwards;
+}
+
+.vortexRing {
+  position: absolute;
+  top: 0;
+  left: 0;
+  border-radius: 50%;
+  opacity: 0;
+}
+.vortexRingA {
+  width: 560px;
+  height: 560px;
+  margin: -280px 0 0 -280px;
+  background: conic-gradient(from 0deg, transparent 0%, rgba(125, 249, 255, 0.55) 9%, transparent 24%, transparent 58%, rgba(170, 120, 255, 0.5) 73%, transparent 90%);
+  -webkit-mask: radial-gradient(circle, transparent 61%, black 64%, black 68%, transparent 71%);
+  mask: radial-gradient(circle, transparent 61%, black 64%, black 68%, transparent 71%);
+}
+.vortexRingB {
+  width: 440px;
+  height: 440px;
+  margin: -220px 0 0 -220px;
+  background: conic-gradient(from 180deg, transparent 0%, rgba(190, 140, 255, 0.4) 13%, transparent 28%, transparent 64%, rgba(125, 249, 255, 0.42) 79%, transparent 95%);
+  -webkit-mask: radial-gradient(circle, transparent 58%, black 62%, black 68%, transparent 72%);
+  mask: radial-gradient(circle, transparent 58%, black 62%, black 68%, transparent 72%);
+}
+.mark.blooming .vortexRingA {
+  animation: vortexAppear 2000ms ease-out 500ms forwards, vortexSpin 20s linear infinite;
+}
+.mark.blooming .vortexRingB {
+  animation: vortexAppear 2000ms ease-out 750ms forwards, vortexSpinReverse 27s linear infinite;
+}
+
+/* ---------- idle: one tiny cyan point ---------- */
+.wireframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.core {
+  fill: #7df9ff;
+  filter: drop-shadow(0 0 6px rgba(125, 249, 255, 0.9)) drop-shadow(0 0 18px rgba(125, 249, 255, 0.5));
+  transform-origin: 150px 150px;
+  animation: idlePulse 2.4s ease-in-out infinite;
+}
+.mark.blooming .core {
+  animation: coreBloom 700ms cubic-bezier(.2, .9, .3, 1) forwards;
+}
+
+.idleHint {
+  position: absolute;
+  bottom: -8px;
+  left: 50%;
+  transform: translate(-50%, 100%);
+  color: rgba(148, 235, 255, 0.85);
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  text-shadow: 0 6px 18px rgba(0, 4, 22, 0.6);
+  animation: hintBounce 2.6s ease-in-out infinite;
+}
+
+/* ---------- rays: lines that "draw" themselves outward ---------- */
+.ray {
+  stroke: #7df9ff;
+  stroke-width: 1.2;
+  stroke-linecap: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  opacity: 0;
+  filter: drop-shadow(0 0 4px rgba(125, 249, 255, 0.6));
+}
+.mark.blooming .ray {
+  animation: rayDraw 900ms cubic-bezier(.22, .9, .28, 1) forwards;
+}
+
+.node {
+  fill: #cdfbff;
+  opacity: 0;
+  transform: scale(0);
+  transform-box: fill-box;
+  transform-origin: center;
+  filter: drop-shadow(0 0 6px rgba(125, 249, 255, 0.85));
+}
+.mark.blooming .node {
+  animation: nodePop 420ms cubic-bezier(.2, .9, .3, 1) forwards;
+}
+
+/* ---------- rings: geometry unfolding outward, piece by piece ---------- */
+.ring {
+  fill: none;
+  stroke: rgba(140, 120, 255, 0.55);
+  stroke-width: 1;
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+  transform: scale(0.3) rotate(-8deg);
+}
+.mark.blooming .ring1 { animation: ringUnfold 900ms cubic-bezier(.2, .9, .3, 1) 500ms forwards; }
+.mark.blooming .ring2 { animation: ringUnfold 900ms cubic-bezier(.2, .9, .3, 1) 900ms forwards; }
+.mark.blooming .ring3 { animation: ringUnfold 900ms cubic-bezier(.2, .9, .3, 1) 1300ms forwards; }
+
+/* threshold ring: unfolds after the others, then SURVIVES the wireframe
+   crossfade (it's outside .wireframeFade) to frame the finished mark like a
+   gate — only dilates away when the overlay opens, see bottom of file */
+.portalRingSpin {
+  transform-origin: 150px 150px;
+  animation: portalRingSpin 26s linear infinite;
+}
+.portalRing {
+  fill: none;
+  stroke: rgba(160, 225, 255, 0.85);
+  stroke-width: 1.4;
+  opacity: 0;
+  transform-origin: 150px 150px;
+  transform: scale(0.7);
+  filter: drop-shadow(0 0 10px rgba(150, 220, 255, 0.55)) drop-shadow(0 0 24px rgba(140, 90, 255, 0.35));
+}
+.mark.blooming .portalRing {
+  animation: portalRingUnfold 900ms cubic-bezier(.2, .9, .3, 1) 1800ms forwards;
+}
+
+/* the drawn wireframe (core+rays+nodes+rings) — NOT the portal ring —
+   dissolves DURING the same window the logo artwork materializes in
+   (compare delays: this starts 1550ms/ends 3050ms, .logoImg below starts
+   1550ms/ends 3550ms) so the geometry reads as becoming the mark rather
+   than being swapped out for it */
+.wireframeFade {
+  opacity: 1;
+}
+.mark.blooming .wireframeFade {
+  animation: wireframeFade 1500ms ease-in 1550ms forwards;
+}
+
+/* crystallization flash: a brief screen-blend burst timed to the middle of
+   the crossfade, bridging the seam between wireframe and artwork */
+.flash {
+  position: absolute;
+  inset: -25%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.95) 0%, rgba(190, 235, 255, 0.55) 30%, rgba(150, 110, 255, 0.28) 55%, transparent 72%);
+  opacity: 0;
+  transform: scale(0.3);
+  mix-blend-mode: screen;
+  pointer-events: none;
+}
+.mark.blooming .flash {
+  animation: flashPulse 600ms ease-out 1600ms forwards;
+}
+
+/* ---------- the real logo artwork, materializing as the wireframe dissolves ---------- */
+.logoImg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  user-select: none;
+  -webkit-user-drag: none;
+  opacity: 0;
+  clip-path: circle(0% at 50% 50%);
+  transform: scale(0.88) rotate(-6deg);
+  /* drop-shadow (unlike box-shadow) follows the PNG's actual alpha silhouette,
+     so with a transparent source this hugs the mark's true star shape —
+     a tight cyan rim plus a soft violet ambient glow behind it */
+  filter:
+    drop-shadow(0 0 3px rgba(205, 251, 255, 0.65))
+    drop-shadow(0 0 18px rgba(125, 249, 255, 0.35))
+    drop-shadow(0 0 46px rgba(120, 90, 255, 0.4));
+}
+.mark.blooming .logoImg {
+  animation: logoBloom 2000ms cubic-bezier(.16, .8, .2, 1) 1550ms forwards;
+}
+
+/* ---------- wordmark: settles in for the quiet held beat ---------- */
+.wordmark {
+  color: #dff7ff;
+  font-weight: 700;
+  font-size: 22px;
+  letter-spacing: 9px;
+  text-transform: uppercase;
+  opacity: 0;
+  transform: translateY(6px);
+  text-shadow: 0 0 24px rgba(125, 249, 255, 0.35);
+}
+.center.blooming .wordmark {
+  animation: wordmarkFade 700ms ease-out 3550ms forwards;
+}
+
+/* ================= keyframes ================= */
+
+@keyframes idlePulse {
+  0%, 100% { transform: scale(1); opacity: 0.75; }
+  50% { transform: scale(1.5); opacity: 1; }
+}
+
+@keyframes coreBloom {
+  0% { transform: scale(1); opacity: 0.85; }
+  55% { transform: scale(3.4); opacity: 1; }
+  100% { transform: scale(2.1); opacity: 0.9; }
+}
+
+@keyframes rayDraw {
+  0% { stroke-dashoffset: 1; opacity: 0; }
+  8% { opacity: 0.9; }
+  100% { stroke-dashoffset: 0; opacity: 0.85; }
+}
+
+@keyframes nodePop {
+  0% { transform: scale(0); opacity: 0; }
+  60% { transform: scale(1.4); opacity: 1; }
+  100% { transform: scale(1); opacity: 0.95; }
+}
+
+@keyframes ringUnfold {
+  0% { transform: scale(0.3) rotate(-8deg); opacity: 0; }
+  60% { opacity: 0.65; }
+  100% { transform: scale(1) rotate(0deg); opacity: 0.45; }
+}
+
+@keyframes portalRingUnfold {
+  0% { transform: scale(0.7); opacity: 0; }
+  100% { transform: scale(1); opacity: 0.55; }
+}
+
+@keyframes portalRingSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes wireframeFade {
+  0% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+@keyframes flashPulse {
+  0% { opacity: 0; transform: scale(0.3); }
+  35% { opacity: 0.95; transform: scale(1.15); }
+  100% { opacity: 0; transform: scale(1.7); }
+}
+
+@keyframes logoBloom {
+  0% { clip-path: circle(0% at 50% 50%); transform: scale(0.88) rotate(-6deg); opacity: 0; }
+  55% { opacity: 1; }
+  100% { clip-path: circle(85% at 50% 50%); transform: scale(1) rotate(0deg); opacity: 1; }
+}
+
+@keyframes portalGlowBuild {
+  0% { opacity: 0; transform: scale(0.4); }
+  100% { opacity: 0.85; transform: scale(1); }
+}
+
+@keyframes vortexAppear {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+@keyframes vortexSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes vortexSpinReverse {
+  from { transform: rotate(360deg); }
+  to { transform: rotate(0deg); }
+}
+
+@keyframes wordmarkFade {
+  0% { opacity: 0; transform: translateY(6px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes hintBounce {
+  0% { transform: translate(-50%, 100%) translateY(0); opacity: 0.85; }
+  50% { transform: translate(-50%, 100%) translateY(-6px); opacity: 1; }
+  100% { transform: translate(-50%, 100%) translateY(0); opacity: 0.85; }
+}
+
+@keyframes openFade {
+  0% { opacity: 1; transform: scale(1); filter: blur(0px); }
+  100% { opacity: 0; transform: scale(1.05); filter: blur(6px); }
+}
+
+/* ================= opening: the portal dilates as it quietly fades ================= */
+/* placed last so equal-specificity ties with the .mark.blooming rules above
+   resolve in favor of these once .overlay gets .opening */
+
+@keyframes portalRingOpen {
+  0% { transform: scale(1); opacity: 0.55; }
+  100% { transform: scale(2.6); opacity: 0; }
+}
+.overlay.opening .portalRing {
+  animation: portalRingOpen 900ms cubic-bezier(.4, 0, .2, 1) forwards;
+}
+
+@keyframes portalGlowOpen {
+  0% { opacity: 0.85; transform: scale(1); }
+  40% { opacity: 1; transform: scale(1.3); }
+  100% { opacity: 0; transform: scale(1.9); }
+}
+.overlay.opening .portalGlow {
+  animation: portalGlowOpen 900ms ease-out forwards;
+}
+
+/* responsive */
+@media (max-width: 640px) {
+  .mark { width: 220px; height: 220px; }
+  .wordmark { font-size: 16px; letter-spacing: 6px; }
+}
