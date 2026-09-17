@@ -18,16 +18,16 @@
 // that AudioReactiveStarfield already listens for — it doesn't know or care
 // which kind of source produced them.
 
+import { createVoiceAnalyzer } from "./voiceAnalysis";
+
 // Shared engine: builds the analyser graph, runs the FFT loop, does beat
 // detection, and dispatches events. `buildSource` is the only thing that
 // differs between a local <audio> element and a captured MediaStream —
 // everything downstream of "we have a Web Audio source node" is identical.
-const VOICE_LO_HZ = 180;
-const VOICE_HI_HZ = 4000;
-const VOICE_BANDS = 6; // log-spaced slices of the vocal range, low -> high
-
-function createReactiveController({ buildSource, toDestination, onDispose, onError }) {
-  const voiceBands = new Float32Array(VOICE_BANDS);
+function createReactiveController({ buildSource, buildStemSource, toDestination, onDispose, onError }) {
+  let voice = null;
+  let stemSource = null;
+  let useStem = false;
   let ctx = null;
   let source = null;
   let analyser = null;
@@ -83,6 +83,22 @@ function createReactiveController({ buildSource, toDestination, onDispose, onErr
     leftAnalyser.smoothingTimeConstant = rightAnalyser.smoothingTimeConstant = 0.8;
     splitter.connect(leftAnalyser, 0);
     splitter.connect(rightAnalyser, 1);
+
+    // Voice analysis taps either the full mix or, when the track has one,
+    // its isolated vocal stem. The stem is never routed to the speakers —
+    // the song itself already contains the vocals.
+    voice = createVoiceAnalyzer(ctx);
+    if (buildStemSource) stemSource = buildStemSource(ctx);
+    routeVoice();
+  }
+
+  function routeVoice() {
+    if (!voice) return;
+    try { source.disconnect(voice.input); } catch (e) {}
+    try { stemSource && stemSource.disconnect(voice.input); } catch (e) {}
+    const stem = useStem && stemSource;
+    (stem ? stemSource : source).connect(voice.input);
+    voice.setMode(stem ? "stem" : "live");
   }
 
   function loop() {
@@ -102,33 +118,8 @@ function createReactiveController({ buildSource, toDestination, onDispose, onErr
     window.__audioFreqL = dataL;
     window.__audioFreqR = dataR;
 
-    // Vocal isolation (heuristic, not true stem separation — that needs an
-    // ML model): lead vocals sit in roughly the 180Hz–4kHz fundamental +
-    // formant range AND are almost always mixed dead center, while pads,
-    // guitars, reverb tails etc. tend to be spread across the stereo field.
-    // So each bin in the vocal range is weighted by how identical its left
-    // and right levels are. Kick/bass are also centered but live below the
-    // range cut-off. Mono sources come out as centerness=1 everywhere,
-    // which degrades gracefully to a plain vocal-range band-pass.
-    const binHz = ctx.sampleRate / analyser.fftSize;
-    const vLo = Math.max(1, Math.round(VOICE_LO_HZ / binHz));
-    const vHi = Math.min(data.length - 1, Math.round(VOICE_HI_HZ / binHz));
-    const ratio = Math.pow(vHi / vLo, 1 / VOICE_BANDS);
-    let voiceTotal = 0;
-    for (let b = 0; b < VOICE_BANDS; b++) {
-      const lo = Math.round(vLo * Math.pow(ratio, b));
-      const hi = Math.max(lo + 1, Math.round(vLo * Math.pow(ratio, b + 1)));
-      let sum = 0;
-      for (let i = lo; i < hi; i++) {
-        const l = dataL[i], r = dataR[i];
-        const center = l + r > 0 ? 1 - Math.abs(l - r) / (l + r) : 0;
-        sum += (data[i] / 255) * center * center;
-      }
-      voiceBands[b] = sum / (hi - lo);
-      voiceTotal += voiceBands[b];
-    }
-    window.__voiceBands = voiceBands;
-    window.__voiceLevel = voiceTotal / VOICE_BANDS;
+    // The lead voice, for VoiceVisualizer — see lib/voiceAnalysis.js.
+    voice.analyse();
 
     // Low band (kick/bass) drives the "beat". Skip bin 0 (DC offset).
     let bass = 0;
@@ -191,6 +182,12 @@ function createReactiveController({ buildSource, toDestination, onDispose, onErr
         onError?.(e);
       }
     },
+    // Switches voice analysis between the full mix and the stem source.
+    // Safe to call before the graph exists; applied once it's built.
+    setVoiceStem(on) {
+      useStem = !!on;
+      routeVoice();
+    },
     stop() {
       running = false;
       if (raf) {
@@ -211,26 +208,63 @@ function createReactiveController({ buildSource, toDestination, onDispose, onErr
         splitter && splitter.disconnect();
         leftAnalyser && leftAnalyser.disconnect();
         rightAnalyser && rightAnalyser.disconnect();
+        stemSource && stemSource.disconnect();
       } catch (e) {}
+      voice && voice.dispose();
       try {
         ctx && ctx.close();
       } catch (e) {}
-      ctx = source = analyser = splitter = leftAnalyser = rightAnalyser = null;
+      ctx = source = analyser = splitter = leftAnalyser = rightAnalyser = voice = stemSource = null;
       delete window.__audioFreqL;
       delete window.__audioFreqR;
-      delete window.__voiceBands;
-      delete window.__voiceLevel;
       onDispose?.();
     },
   };
 }
 
-export function createAudioReactiveController(audioEl, { onError } = {}) {
-  return createReactiveController({
+// `stemEl` (optional) is a second, stable <audio> element for the track's
+// isolated vocal stem. It's kept in lockstep with `audioEl` — play, pause,
+// seek, loop — and only ever feeds the voice analysis, never the speakers.
+export function createAudioReactiveController(audioEl, { stemEl, onError } = {}) {
+  let stemOn = false;
+
+  const sync = () => {
+    if (!stemOn || !stemEl) return;
+    if (Math.abs(stemEl.currentTime - audioEl.currentTime) > 0.08) {
+      stemEl.currentTime = audioEl.currentTime;
+    }
+    if (audioEl.paused) stemEl.pause();
+    else if (stemEl.paused) stemEl.play().catch(() => {});
+  };
+  const events = ["play", "pause", "seeked", "timeupdate", "ratechange"];
+  const onRate = () => {
+    if (stemEl) stemEl.playbackRate = audioEl.playbackRate;
+  };
+  if (stemEl) {
+    events.forEach((e) => audioEl.addEventListener(e, sync));
+    audioEl.addEventListener("ratechange", onRate);
+  }
+
+  const controller = createReactiveController({
     buildSource: (ctx) => ctx.createMediaElementSource(audioEl),
+    buildStemSource: stemEl ? (ctx) => ctx.createMediaElementSource(stemEl) : null,
     toDestination: true,
     onError,
+    onDispose: () => {
+      events.forEach((e) => audioEl.removeEventListener(e, sync));
+      audioEl.removeEventListener("ratechange", onRate);
+      stemEl?.pause();
+    },
   });
+
+  const setVoiceStem = controller.setVoiceStem;
+  controller.setVoiceStem = (on) => {
+    stemOn = !!on && !!stemEl;
+    if (!stemOn) stemEl?.pause();
+    setVoiceStem(stemOn);
+    sync();
+  };
+  return controller;
 }
 
 // `stream` is a MediaStream with an audio track — typically from

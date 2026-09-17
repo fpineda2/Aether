@@ -14,7 +14,7 @@ export default function ChallengePage() {
     `mailto:${SUBMIT_EMAIL}` +
     `?subject=${encodeURIComponent("Aether track submission")}` +
     `&body=${encodeURIComponent(
-      "Track title:\nHow you'd like to be credited:\n\n(Attach the audio file before sending.)"
+      "Track title:\nHow you'd like to be credited:\n\n(Attach the audio file before sending, plus the isolated vocal stem if the track has vocals.)"
     )}`;
 
   return (
@@ -343,6 +343,12 @@ export default function ChallengePage() {
           </p>
           <ol className={styles.submitSteps}>
             <li>Export a stereo file (MP3, WAV, M4A, FLAC, or similar all work).</li>
+            <li>
+              Has vocals? Also export the isolated vocal stem, starting at the
+              exact same moment as the full track. Aether&rsquo;s voice visuals
+              read the stem directly, so they follow your voice exactly
+              instead of estimating it from the mix.
+            </li>
             <li>Attach it to an email with the track title and how you&rsquo;d like to be credited.</li>
             <li>Send it — if it&rsquo;s a fit, you&rsquo;ll hear back once it&rsquo;s live.</li>
           </ol>

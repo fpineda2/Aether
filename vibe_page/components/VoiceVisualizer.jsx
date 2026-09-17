@@ -1,9 +1,11 @@
 // components/VoiceVisualizer.jsx
 // Gives the artist's VOICE its own visual, separate from the beat-driven
 // starfield/web: a horizontal ribbon across the middle of the screen whose
-// shape is sculpted by the vocal-range energy lib/audioReactive.js isolates
-// (window.__voiceBands — six log-spaced slices of ~180Hz–4kHz, weighted
-// toward center-panned content, which is where lead vocals live).
+// shape is sculpted by the voice lib/voiceAnalysis.js reads out of the audio
+// (window.__voiceBands — six log-spaced slices of ~180Hz–4kHz — plus the
+// sung pitch in window.__voicePitch). The analysis only opens the bands up
+// while a voice is actually sounding, so between phrases the ribbon settles
+// to a thin thread instead of dancing to the drums.
 //
 // Three styles, picked from the visualizer controls:
 //   - "strands":   layered lines fanning out like a sound ribbon
@@ -94,8 +96,9 @@ export default function VoiceVisualizer() {
     let active = false;
     let t = 0;
     let presence = 0; // eased overall vocal level, drives global amplitude/brightness
-    let peak = 0.15; // slow-following loudness ceiling, auto-gain for quiet mixes
+    let peak = 0.4; // slow-following loudness ceiling, gentle auto-gain for quiet vocals
     const bands = new Float32Array(BAND_CYCLES.length);
+    let pitchScale = 1; // eased: low notes stretch the ripples wide, high notes tighten them
 
     // Sum of each band's sine at position u, for strand/phase offset `off`.
     // Normalized by the bands' total so a full, loud voice reshapes the
@@ -105,7 +108,7 @@ export default function VoiceVisualizer() {
       let y = 0;
       let total = 0.35;
       for (let k = 0; k < bands.length; k++) {
-        y += bands[k] * Math.sin(2 * Math.PI * BAND_CYCLES[k] * u + t * (0.6 + k * 0.25) + off * (1 + k * 0.35));
+        y += bands[k] * Math.sin(2 * Math.PI * BAND_CYCLES[k] * pitchScale * u + t * (0.6 + k * 0.25) + off * (1 + k * 0.35));
         total += bands[k];
       }
       return y / total;
@@ -197,11 +200,22 @@ export default function VoiceVisualizer() {
     const frame = () => {
       const src = window.__voiceBands;
       const level = window.__voiceLevel || 0;
-      peak = Math.max(level, peak * 0.997, 0.08);
+      // The analysis already normalizes the bands, so this only lifts a
+      // quiet vocal a little — a low floor would amplify faint leftovers
+      // from the instruments into a full-size ribbon.
+      peak = Math.max(level, peak * 0.997, 0.4);
       const gain = 1 / peak;
       for (let k = 0; k < bands.length; k++) {
         const target = src ? Math.min(1.2, src[k] * gain) : 0;
         bands[k] += (target - bands[k]) * (target > bands[k] ? ATTACK : DECAY);
+      }
+      // Map the sung pitch (roughly 90Hz bass to 900Hz soprano, on a log
+      // scale like the ear hears it) to how tightly the ribbon ripples.
+      // Holds its last value between phrases instead of snapping back.
+      const hz = window.__voicePitch || 0;
+      if (hz > 0) {
+        const n = Math.min(1, Math.max(0, Math.log(hz / 90) / Math.log(10)));
+        pitchScale += (0.7 + n * 0.9 - pitchScale) * 0.08;
       }
       const p = Math.min(1, level * gain);
       presence += (p - presence) * (p > presence ? 0.2 : 0.05);
