@@ -69,9 +69,10 @@ Online College of Art and Design
         <aside id="sidebar" className="bg-transparent p-6 rounded-2xl shadow-lg shadow-blue-500/30
              ornate-frame corner-flourish panel-gap">
 
-          <div className="mt-6 pt-6 border-t border-white/10">
-            <InteractiveMode />
-          </div>
+          {/* No wrapper spacing or divider: nothing sits above this in the
+              sidebar any more, so the rule was drawing under nothing and its
+              48px of margin pushed the panel's last options off screen. */}
+          <InteractiveMode />
         </aside>
       </main>
       </FocusModeWrapper>
