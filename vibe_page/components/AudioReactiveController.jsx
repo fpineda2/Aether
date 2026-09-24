@@ -360,10 +360,17 @@ export default function AudioReactiveController({
               They were a single crowded row of 12px text before, which made
               the file picker, the tab capture and the voice styles read as
               footnotes — people never found them. */}
+          {/* All three ways of feeding the visualizer in one row. They were
+              separate blocks with a paragraph each, which pushed the vocal
+              stem option and the Challenge below the fold on a laptop —
+              where nobody found them, the same disappearing act the old
+              fine print pulled. Picking a track and capturing a tab are
+              mutually exclusive; each stops the other. */}
           <div className={styles.group}>
-            <div className={styles.groupLabel}>Choose a track</div>
+            <div className={styles.groupLabel}>Feed it audio</div>
             <p className={styles.groupHint}>
-              Picking a track plays it — these are original pieces written for Aether.
+              Play one of Aether&rsquo;s own tracks, use a file of your own, or
+              capture whatever&rsquo;s already playing in another tab.
             </p>
             <div className={styles.row}>
               {/* One control, not two: picking a track and playing it are the
@@ -403,38 +410,33 @@ export default function AudioReactiveController({
               </div>
 
               <label className={styles.secondary}>
-                🎧 Use my own
+                Use my own
                 <input type="file" accept="audio/*" onChange={onFile} style={{ display: "none" }} />
               </label>
-            </div>
-          </div>
 
-          {/* Lets a visitor's own music — Spotify, Apple Music, anything —
-              drive the visualizer without uploading a file. Can't read those
-              streams directly (DRM), so this captures whatever's already
-              playing out loud from a shared tab, the same way a microphone
-              would. Picking a track above and capturing are mutually
-              exclusive; each stops the other. */}
-          <div className={styles.group}>
-            <div className={styles.groupLabel}>Or use what&rsquo;s already playing</div>
-            <p className={styles.groupHint}>
-              {capturing
-                ? "Listening to the shared tab — play anything there and the visuals follow."
-                : "Shares a browser tab's audio, not your camera or mic. Pick the tab with your music and check \"share tab audio\"."}
-            </p>
-            <button
-              onClick={capturing ? stopCapture : startCapture}
-              title="Opens your browser's own tab-sharing picker — not a camera or microphone request."
-              className={`${styles.secondary} ${capturing ? styles.secondaryOn : ""}`}
-            >
-              {capturing ? (
-                <>
-                  <span className={styles.live}>⏹</span> Stop capturing
-                </>
-              ) : (
-                "Capture tab audio"
-              )}
-            </button>
+              {/* Can't read a DRM stream directly, so this captures whatever's
+                  already playing out loud from a shared tab, the same way a
+                  microphone would. */}
+              <button
+                onClick={capturing ? stopCapture : startCapture}
+                title="Shares a browser tab's audio — not your camera or microphone. Pick the tab with your music and check its audio option."
+                className={`${styles.secondary} ${capturing ? styles.secondaryOn : ""}`}
+              >
+                {capturing ? (
+                  <>
+                    <span className={styles.live}>⏹</span> Stop capturing
+                  </>
+                ) : (
+                  "Capture a tab"
+                )}
+              </button>
+            </div>
+            {capturing && (
+              <div className={styles.status}>
+                <span className={`${styles.statusDot} ${styles.live}`} />
+                Listening to the shared tab — play anything there and the visuals follow.
+              </div>
+            )}
           </div>
 
           {/* The vocal ribbon (components/VoiceVisualizer.jsx) — its own
@@ -474,7 +476,7 @@ export default function AudioReactiveController({
 
             {!capturing && (
               <div className={styles.row} style={{ marginTop: 10 }}>
-                <label className={styles.secondary}>
+                <label className={`${styles.secondary} ${styles.accent}`}>
                   {stemSrc ? "Replace vocal stem" : "Add vocal stem"}
                   <input
                     type="file"

@@ -39,10 +39,10 @@
 
 .subtitle {
   font-size: 0.875rem;
-  line-height: 1.5;
+  line-height: 1.45;
   font-weight: 400;
   color: rgba(255, 255, 255, 0.72);
-  margin: 6px 0 16px;
+  margin: 5px 0 13px;
 }
 
 /* The one thing to press first */
@@ -52,7 +52,7 @@
   justify-content: center;
   gap: 8px;
   width: 100%;
-  padding: 13px 18px;
+  padding: 10px 18px;
   border-radius: 14px;
   border: 1px solid rgba(139, 92, 246, 0.55);
   background: linear-gradient(135deg, rgba(139, 92, 246, 0.32), rgba(59, 130, 246, 0.22));
@@ -83,10 +83,13 @@
   box-shadow: 0 0 26px rgba(139, 92, 246, 0.4);
 }
 
-/* Each option gets its own block, so nothing reads as fine print */
+/* Each option gets its own block, so nothing reads as fine print. Spacing
+   is deliberately tight: generous blocks pushed the vocal-stem option and
+   the Challenge below the fold on a laptop screen, where people never found
+   them — the same disappearing act the old fine print pulled. */
 .group {
-  margin-top: 20px;
-  padding-top: 18px;
+  margin-top: 14px;
+  padding-top: 13px;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
@@ -115,9 +118,9 @@
 
 .groupHint {
   font-size: 0.8125rem;
-  line-height: 1.45;
+  line-height: 1.4;
   color: rgba(255, 255, 255, 0.62);
-  margin: 0 0 11px;
+  margin: 0 0 9px;
 }
 
 .row {
@@ -283,6 +286,14 @@
 /* Which source the voice visuals are actually reading. This is a readout,
    not an action — as a bordered pill it looked like a button that does
    nothing when clicked, so it's plain text with a small live dot. */
+/* The stem upload is the one control that upgrades the voice visuals from
+   a guess to an exact read, so it carries the panel's accent color. */
+.accent {
+  border-color: rgba(103, 232, 249, 0.5);
+  background: rgba(103, 232, 249, 0.12);
+  color: #a5f3fc;
+}
+
 .status {
   display: flex;
   /* Dot beside the FIRST line, not floating mid-block when the text wraps */
@@ -316,8 +327,8 @@
   justify-content: space-between;
   gap: 10px;
   width: 100%;
-  margin-top: 20px;
-  padding: 13px 16px;
+  margin-top: 14px;
+  padding: 11px 16px;
   border-radius: 14px;
   border: 1px solid rgba(139, 92, 246, 0.4);
   background: linear-gradient(135deg, rgba(139, 92, 246, 0.16), rgba(255, 46, 166, 0.12));

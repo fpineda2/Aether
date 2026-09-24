@@ -45,10 +45,11 @@ export default function InteractiveMode() {
   return (
     <div className={styles.panel}>
       <h2 className={styles.title}>Visualizer</h2>
+      {/* Short on purpose: the blocks below explain themselves, and every
+          extra line here pushes the last of them off a laptop screen. */}
       <p className={styles.subtitle}>
         Music becomes light: the visuals react to the beat, and a second set
-        follows the singer&rsquo;s voice. Works with the tracks below, your own
-        file, or whatever&rsquo;s already playing in another tab.
+        follows the singer&rsquo;s voice.
       </p>
 
       <button
