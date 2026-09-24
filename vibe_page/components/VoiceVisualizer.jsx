@@ -49,8 +49,43 @@ const SHAPE_CYCLES = [1.2, 2.1, 3.2, 4.6, 6.4, 8.5];
 const SHAPE_N = SHAPE_CYCLES.length;
 const BUMPS = 8; // overtones drawn by "harmonics"
 
-// Hue stops across the ribbon, left -> right (cyan, violet, magenta, orange, gold)
-const RIBBON_HUES = [190, 265, 320, 380, 410];
+// Aether's palette, taken from the page itself: the title's violet #8b5cf6,
+// cyan #67e8f9 and pink #ff2ea6, over the background's deep violet, sky blue
+// and pink blobs. Everything below stays inside cyan -> blue -> violet ->
+// pink; nothing strays into green, amber or red.
+const CYAN = [103, 232, 249]; // #67e8f9
+const VIOLET = [139, 92, 246]; // #8b5cf6
+const PINK = [255, 46, 166]; // #ff2ea6
+
+// Hue stops across the ribbon, left -> right (cyan, sky blue, violet, magenta, pink)
+const RIBBON_HUES = [187, 217, 258, 292, 327];
+const HUE_CYAN = 187;
+const HUE_PINK = 327;
+
+const mixRgb = (a, b, t) => [
+  Math.round(a[0] + (b[0] - a[0]) * t),
+  Math.round(a[1] + (b[1] - a[1]) * t),
+  Math.round(a[2] + (b[2] - a[2]) * t),
+];
+
+// How much of the screen's width the ribbon styles occupy, centered. Kept
+// short on purpose: a ribbon stretched across the whole viewport reads as a
+// chart running past the page content, while a compact one sits in the
+// middle of the visuals like an object in the scene.
+const SPAN_FRACTION = 0.26;
+const SPAN_MIN_PX = 240; // so it doesn't shrink to nothing on a phone
+// Height relative to that width, so the shapes keep their proportions
+// instead of getting tall and narrow as the ribbon gets shorter.
+const AMP_IDLE = 0.025;
+const AMP_GAIN = 0.142;
+
+// Particles: dots are spaced by these distances in real pixels, so the
+// ribbon thins out as it gets shorter instead of packing the same count of
+// dots into less room (which reads as a solid tube, not a dotted ribbon).
+const DOT_SPACING_PX = 7.5; // along the ribbon
+const ROW_SPACING_PX = 9; // across its width
+const DOT_STEPS_RANGE = [20, 200];
+const DOT_ROWS_RANGE = [5, 14];
 
 const ECHO_LINES = 12; // strands
 const ECHO_SPACING = 2; // frames between each strand's snapshot
@@ -61,8 +96,8 @@ function ribbonHue(u, shift = 0) {
   const p = u * (RIBBON_HUES.length - 1);
   const i = Math.min(RIBBON_HUES.length - 2, Math.floor(p));
   const h = RIBBON_HUES[i] + (RIBBON_HUES[i + 1] - RIBBON_HUES[i]) * (p - i);
-  // Keep the shifted hue on the violet/magenta side of the wheel (190..410)
-  return Math.min(410, Math.max(190, h + shift)) % 360;
+  // Clamp so a vowel shift can't push the hue out of Aether's range
+  return Math.min(HUE_PINK, Math.max(HUE_CYAN, h + shift));
 }
 
 // Tapers the ribbon to a point at both ends, like the reference images.
@@ -202,7 +237,10 @@ export default function VoiceVisualizer() {
       return y / total;
     };
 
-    const ampFor = (lvl) => H * (0.035 + lvl * 0.2);
+    // Ribbon geometry: centered, a quarter of the width, amplitude tied to
+    // that width rather than the screen height.
+    const spanOf = () => Math.min(W * 0.88, Math.max(W * SPAN_FRACTION, Math.min(SPAN_MIN_PX, W * 0.8)));
+    const ampFor = (lvl, span) => span * (AMP_IDLE + lvl * AMP_GAIN);
 
     const drawStrands = (cy, left, span) => {
       const STEPS = 160;
@@ -210,21 +248,19 @@ export default function VoiceVisualizer() {
       for (let m = 0; m < ECHO_LINES; m++) {
         const f = m / (ECHO_LINES - 1); // 0 = back (oldest), 1 = front (now)
         const snap = echo[(echoHead - (ECHO_LINES - 1 - m) * ECHO_SPACING + ECHO_FRAMES * 2) % ECHO_FRAMES];
-        // Back strands warm orange, front strand cool cyan — warming toward
-        // rose on bright vowels. Mixed in RGB: sweeping the hue wheel from
-        // orange to cyan passes through a muddy green.
-        const fr = 70 + (255 - 70) * bright * 0.55, fg = 220 - 90 * bright * 0.55, fb = 255 - 45 * bright * 0.55;
-        const r = Math.round(255 + (fr - 255) * f);
-        const g = Math.round(110 + (fg - 110) * f);
-        const b = Math.round(60 + (fb - 60) * f);
+        // Back strands violet, front strand cyan — the front one drifting
+        // toward pink on bright vowels. Mixed in RGB rather than by hue, so
+        // the middle strands blend cleanly instead of banding.
+        const front = mixRgb(CYAN, PINK, bright * 0.55);
+        const [r, g, b] = mixRgb(VIOLET, front, f);
         ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${(0.25 + f * 0.65) * idle})`;
         ctx.lineWidth = m === ECHO_LINES - 1 ? 2 : 1;
-        const amp = ampFor(snap.level);
+        const amp = ampFor(snap.level, span);
         ctx.beginPath();
         for (let s = 0; s <= STEPS; s++) {
           const u = s / STEPS;
           const y = cy + taper(u) * amp * wave(u, f * 0.6, snap.shape, snap.pitchScale, snap.t);
-          const x = left + u * span + (1 - f) * 12; // slight stagger adds depth
+          const x = left + u * span + (1 - f) * span * 0.011; // slight stagger adds depth
           s === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
         }
         ctx.stroke();
@@ -232,12 +268,19 @@ export default function VoiceVisualizer() {
     };
 
     const drawParticles = (cy, left, span) => {
-      const LINES = 14;
-      const STEPS = 150;
-      const amp = ampFor(level);
+      const amp = ampFor(level, span);
+      const STEPS = Math.round(
+        Math.min(DOT_STEPS_RANGE[1], Math.max(DOT_STEPS_RANGE[0], span / DOT_SPACING_PX))
+      );
+      // Row count comes from the ribbon's widest possible thickness, not the
+      // current one, so rows don't pop in and out as the singing swells.
+      const fullThickness = span * (AMP_IDLE + AMP_GAIN);
+      const LINES = Math.round(
+        Math.min(DOT_ROWS_RANGE[1], Math.max(DOT_ROWS_RANGE[0], fullThickness / ROW_SPACING_PX))
+      );
       const halfWidth = 0.3 + level * 0.2; // ribbon width, relative to amp
       const idle = 0.35 + presence * 0.65;
-      const hueShift = (bright - 0.5) * 60; // warmer on bright vowels
+      const hueShift = (bright - 0.5) * 60; // toward pink on bright vowels, cyan on dark ones
       for (let m = 0; m < LINES; m++) {
         const across = (m / (LINES - 1)) * Math.PI; // position across the ribbon's width
         for (let s = 0; s <= STEPS; s++) {
@@ -249,7 +292,7 @@ export default function VoiceVisualizer() {
           const phi = across + u * 3 + t * 0.4;
           const depth = 0.5 + 0.5 * Math.sin(phi); // 0 = far, 1 = near
           const y = cy + env * amp * (wave(u, 0, shape, pitchScale, t) + halfWidth * Math.cos(phi));
-          const x = left + u * span + Math.sin(phi) * 10; // slant the dot rows for depth
+          const x = left + u * span + Math.sin(phi) * span * 0.009; // slant the dot rows for depth
           const r = (0.6 + depth * 1.3) * (0.6 + env * 0.6) * (0.85 + level * 0.5);
           ctx.fillStyle = `hsla(${ribbonHue(u, hueShift)}, 85%, ${50 + depth * 22}%, ${(0.25 + depth * 0.7) * idle})`;
           ctx.beginPath();
@@ -258,7 +301,7 @@ export default function VoiceVisualizer() {
         }
       }
       // Breath and consonants: fine dots drifting off the ribbon
-      const sprays = Math.floor(breath * 120);
+      const sprays = Math.floor(breath * STEPS * 0.8);
       for (let i = 0; i < sprays; i++) {
         const k = i * 17 + Math.floor(frameCount / 3) * 131;
         const u = 0.08 + hash(k) * 0.84;
@@ -271,7 +314,7 @@ export default function VoiceVisualizer() {
     const drawHarmonics = (cy, left, span) => {
       const LAYERS = 10;
       const STEPS = 200;
-      const amp = ampFor(level);
+      const amp = ampFor(level, span);
       const grad = ctx.createLinearGradient(left, 0, left + span, 0);
       for (let i = 0; i < RIBBON_HUES.length; i++) {
         grad.addColorStop(i / (RIBBON_HUES.length - 1), `hsl(${RIBBON_HUES[i] % 360}, 90%, 65%)`);
@@ -320,19 +363,22 @@ export default function VoiceVisualizer() {
     const drawRipples = () => {
       const cx = W / 2;
       const cy = H / 2;
-      const maxR = Math.min(W, H) * 0.46;
+      // Rings travel out to the same footprint the ribbon styles occupy, so
+      // every voice style takes up the same room in the scene.
+      const maxR = Math.min((W * SPAN_FRACTION) / 2, H * 0.22);
       const STEPS = 140;
       ctx.lineJoin = "round";
       for (const ring of rings) {
         const life = ring.age / RING_LIFE;
         const R = 6 + ring.birthSize + life * maxR;
-        // Fades gently so the warm outer rings still carry their color
-        const alpha = Math.pow(1 - life, 0.7) * (0.35 + 0.65 * ring.level);
+        // Fades gently so the outer rings still carry their color
+        const alpha = Math.pow(1 - life, 0.6) * (0.45 + 0.55 * ring.level);
         if (alpha < 0.01) continue;
-        // Dark vowels green-teal, bright vowels orange; each ring warms toward
-        // red as it travels outward, like the reference's green-to-red spread
-        const hue = Math.max(-10, 160 - 120 * ring.bright - life * 110);
-        ctx.strokeStyle = `hsla(${(hue + 360) % 360}, 100%, ${60 + ring.level * 10}%, ${alpha})`;
+        // Dark vowels cyan, bright vowels pink, and every ring drifts a
+        // little further toward pink as it travels outward — the title's own
+        // cyan-violet-pink sweep, spread across the rings.
+        const hue = Math.min(HUE_PINK, HUE_CYAN + ring.bright * 110 + life * 45);
+        ctx.strokeStyle = `hsla(${hue}, 95%, ${66 + ring.level * 10}%, ${alpha})`;
         ctx.lineWidth = 0.7 + ring.level * 2.3;
         // Breathy moments draw as a dotted, airy ring
         ctx.setLineDash(ring.breath > 0.65 ? [1.5, 4] : []);
@@ -391,8 +437,8 @@ export default function VoiceVisualizer() {
 
       ctx.clearRect(0, 0, W, H);
       if (style !== "off") {
-        const left = W * 0.06;
-        const span = W * 0.88;
+        const span = spanOf();
+        const left = (W - span) / 2;
         const cy = H * 0.5;
         ctx.globalCompositeOperation = "lighter";
         if (style === "strands") drawStrands(cy, left, span);
