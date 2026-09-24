@@ -1,0 +1,355 @@
+/* styles/Visualizer.module.css
+   The visualizer panel's UI: components/InteractiveMode.jsx and the controls
+   in components/AudioReactiveController.jsx.
+
+   The page's serif faces (Gloock/Cormorant/Spectral) carry the editorial
+   voice of the header and About copy, but they read formal and thin in an
+   instrument panel — small serif text at low opacity is what made these
+   controls look like footnotes and kept people from finding half the
+   features. Everything here uses --font-ui (Space Grotesk) at real weights
+   and real sizes, with each option given its own labeled block and a control
+   that looks like a control.
+
+   Colors are Aether's own: violet #8b5cf6, cyan #67e8f9, pink #ff2ea6. */
+
+.panel {
+  font-family: var(--font-ui);
+  color: rgba(255, 255, 255, 0.94);
+  /* The starfield and web animate directly behind this panel; without a
+     surface of its own the moving lines run straight through the text. */
+  padding: 20px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: linear-gradient(180deg, rgba(12, 16, 34, 0.78), rgba(8, 10, 24, 0.68));
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.title {
+  font-family: var(--font-ui);
+  font-size: 1.55rem;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  margin: 0;
+  background: linear-gradient(90deg, #8b5cf6 0%, #67e8f9 55%, #ff2ea6 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.subtitle {
+  font-size: 0.875rem;
+  line-height: 1.5;
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.72);
+  margin: 6px 0 16px;
+}
+
+/* The one thing to press first */
+.primary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 13px 18px;
+  border-radius: 14px;
+  border: 1px solid rgba(139, 92, 246, 0.55);
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.32), rgba(59, 130, 246, 0.22));
+  color: #fff;
+  /* Script, not the panel's sans: this is the invitation into the light
+     show, and a little whimsy suits it. Sized up because cursive letters
+     read smaller than an upright face at the same nominal size. */
+  font-family: var(--font-script);
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.primary:hover {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.45), rgba(103, 232, 249, 0.25));
+  box-shadow: 0 0 22px rgba(139, 92, 246, 0.35);
+}
+
+.primary:active {
+  transform: translateY(1px);
+}
+
+.primaryOn {
+  border-color: rgba(103, 232, 249, 0.6);
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.5), rgba(255, 46, 166, 0.28));
+  box-shadow: 0 0 26px rgba(139, 92, 246, 0.4);
+}
+
+/* Each option gets its own block, so nothing reads as fine print */
+.group {
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* A small cyan rule instead of an icon: emoji render inconsistently across
+   platforms, and a missing glyph box next to a heading looks broken. */
+.groupLabel::before {
+  content: "";
+  width: 14px;
+  height: 2px;
+  border-radius: 2px;
+  background: currentColor;
+  flex-shrink: 0;
+}
+
+.groupLabel {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(103, 232, 249, 0.9);
+  margin-bottom: 4px;
+}
+
+.groupHint {
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.62);
+  margin: 0 0 11px;
+}
+
+.row {
+  display: flex;
+  gap: 9px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+/* Track pill: play/pause on the left, picker caret on the right */
+.pickerWrap {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.pill {
+  display: flex;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(59, 130, 246, 0.2);
+  overflow: hidden;
+}
+
+.pillOn {
+  border-color: rgba(168, 85, 247, 0.6);
+  background: rgba(168, 85, 247, 0.3);
+}
+
+.pillPlay {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border: none;
+  background: transparent;
+  color: #fff;
+  font-family: inherit;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  cursor: pointer;
+  /* A long track label must not widen the pill and push the caret out of
+     view: a flex child won't shrink below its content width without this. */
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pillPlay:hover,
+.pillCaret:hover {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.pillCaret {
+  flex-shrink: 0;
+  padding: 10px 12px;
+  border: none;
+  border-left: 1px solid rgba(255, 255, 255, 0.18);
+  background: transparent;
+  color: #fff;
+  font-family: inherit;
+  font-size: 0.8125rem;
+  cursor: pointer;
+}
+
+/* The dropdown must not sit inside an overflow:hidden box (the pill above
+   clips its own corners) or it would be clipped to nothing while still
+   "open" in the DOM — which reads as a caret that does nothing. */
+.menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 20;
+  min-width: 250px;
+  max-height: 230px;
+  overflow-y: auto;
+  background: #101a30;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 12px;
+  padding: 5px;
+  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.5);
+}
+
+.menuItem {
+  padding: 9px 11px;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  cursor: pointer;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.menuItem:hover {
+  background: rgba(103, 232, 249, 0.16);
+  color: #67e8f9;
+}
+
+.menuItemOn {
+  font-weight: 600;
+  color: #67e8f9;
+}
+
+/* Secondary actions: still obviously buttons, just quieter than .primary */
+.secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.92);
+  font-family: inherit;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.16s ease, border-color 0.16s ease;
+}
+
+.secondary:hover {
+  background: rgba(103, 232, 249, 0.14);
+  border-color: rgba(103, 232, 249, 0.45);
+}
+
+.secondaryOn {
+  border-color: rgba(255, 46, 166, 0.5);
+  background: rgba(255, 46, 166, 0.18);
+}
+
+/* Voice style chips */
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.chip {
+  padding: 8px 13px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.82);
+  font-family: inherit;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease;
+}
+
+.chip:hover {
+  border-color: rgba(103, 232, 249, 0.5);
+  color: #fff;
+}
+
+.chipOn {
+  border-color: rgba(255, 46, 166, 0.65);
+  background: rgba(255, 46, 166, 0.22);
+  color: #fff;
+  font-weight: 600;
+}
+
+/* Which source the voice visuals are actually reading. This is a readout,
+   not an action — as a bordered pill it looked like a button that does
+   nothing when clicked, so it's plain text with a small live dot. */
+.status {
+  display: flex;
+  /* Dot beside the FIRST line, not floating mid-block when the text wraps */
+  align-items: flex-start;
+  gap: 8px;
+  line-height: 1.45;
+  margin-top: 12px;
+  font-size: 0.8125rem;
+  font-style: italic;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.statusExact {
+  color: rgba(165, 243, 252, 0.9);
+}
+
+.statusDot {
+  width: 6px;
+  height: 6px;
+  margin-top: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+  box-shadow: 0 0 6px currentColor;
+}
+
+/* An invitation, not a footnote */
+.cta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  margin-top: 20px;
+  padding: 13px 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(139, 92, 246, 0.4);
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.16), rgba(255, 46, 166, 0.12));
+  color: #fff;
+  font-family: inherit;
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition: border-color 0.16s ease, box-shadow 0.2s ease;
+}
+
+.cta:hover {
+  border-color: rgba(255, 46, 166, 0.6);
+  box-shadow: 0 0 20px rgba(255, 46, 166, 0.22);
+}
+
+.ctaArrow {
+  color: #ff2ea6;
+  font-size: 1.05rem;
+}
+
+.error {
+  margin-top: 12px;
+  padding: 9px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(248, 113, 113, 0.4);
+  background: rgba(248, 113, 113, 0.12);
+  color: #fecaca;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
+
+.live {
+  color: #ff2ea6;
+}

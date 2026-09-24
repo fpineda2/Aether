@@ -2,9 +2,14 @@
 // components/InteractiveMode.jsx
 // Self-contained interactive visualizer. Reacts to a LOCAL audio track (not
 // Spotify playback), which is why it lives outside the Spotify panel.
+//
+// The panel's look lives in styles/Visualizer.module.css — see the note at
+// the top of that file for why the controls use their own sans face instead
+// of the page's serifs.
 
 import { useState } from "react";
 import dynamic from "next/dynamic";
+import styles from "../styles/Visualizer.module.css";
 
 // The Web Audio analysis engine (lib/audioReactive.js + this controller) is
 // only needed once someone actually opens Immersive Mode — don't ship it in
@@ -38,38 +43,21 @@ export default function InteractiveMode() {
   }
 
   return (
-    <div>
-      <h2 className="font-[var(--font-heading)] italic text-2xl mb-2">
-        Visualizer
-      </h2>
-      <p
-        style={{
-          fontSize: 14,
-          opacity: 0.85,
-          marginBottom: 12,
-          lineHeight: 1.5,
-        }}
-      >
-        A beat-reactive light show driven by a local track — independent of
-        Spotify playback.
+    <div className={styles.panel}>
+      <h2 className={styles.title}>Visualizer</h2>
+      <p className={styles.subtitle}>
+        Music becomes light: the visuals react to the beat, and a second set
+        follows the singer&rsquo;s voice. Works with the tracks below, your own
+        file, or whatever&rsquo;s already playing in another tab.
       </p>
 
       <button
         onClick={toggleActive}
-        title="Beat-reactive spiderweb (visualizes a local track)"
-        style={{
-          padding: "8px 16px",
-          borderRadius: 12,
-          border: "1px solid rgba(255,255,255,0.15)",
-          background: active ? "rgba(168,85,247,0.35)" : "rgba(59,130,246,0.22)",
-          color: "#fff",
-          cursor: "pointer",
-          fontSize: 14,
-          width: "100%",
-          marginBottom: 18,
-        }}
+        aria-pressed={active}
+        title="Turn the audio-reactive visuals on or off"
+        className={`${styles.primary} ${active ? styles.primaryOn : ""}`}
       >
-        {active ? "🎵 Immersive ON" : "✨ Immersive Mode"}
+        {active ? "Immersive Mode is on" : "Turn on Immersive Mode"}
       </button>
 
       <AudioReactiveController active={active} />

@@ -27,7 +27,10 @@ export default function Page() {
       Aether
       </h1>
 
-        <h2 className="font-[var(--font-body)] text-gray-200/90 mt-2">
+        {/* Script face, same as the panels' primary buttons — the tagline is
+            the page's own invitation, so it speaks in that voice too. Sized
+            up: cursive reads smaller than an upright face. */}
+        <h2 className="font-script text-3xl text-gray-100/90 mt-3">
           Where sound becomes atmosphere
         </h2>
 

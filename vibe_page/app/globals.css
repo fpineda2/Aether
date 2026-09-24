@@ -182,6 +182,11 @@ html, body {
   --font-display: "Gloock", serif;
   --font-heading: "Cormorant Garamond", serif;
   --font-body: "Spectral", serif;
+  /* Controls and other UI chrome — the serif faces above are for reading,
+     not for buttons and labels. */
+  --font-ui: "Space Grotesk", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  /* A touch of whimsy, for the invitation to enter the light show */
+  --font-script: "Dancing Script", "Segoe Script", cursive;
 }
 
 /* Typographic polish */
