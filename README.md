@@ -32,6 +32,7 @@ Built with Next.js, React, the Web Audio API, and the Spotify Web API, Aether ex
 - **Tab & system audio capture** — Spotify's own stream can't be analyzed directly (see Engineering Notes), so Interactive Mode can instead capture whatever's already playing out loud from a shared browser tab via `getDisplayMedia` — Spotify, Apple Music, YouTube, anything — and feed it into the same real-time analysis. Works alongside local playback, not instead of it; picking one stops the other.
 - **The Aether Challenge** — an open invitation for other musicians to compose for the installation: a full listening brief (frequency bands, beat behavior, color/stereo logic) at `/challenge`, with a submission path for a track to be added to the bundled list.
 - **Focus mode** — a one-click "Only Background" toggle that hides all page content, leaving just the cosmic visuals running underneath.
+- **Fullscreen** — a toggle beside it that hands the whole screen to Aether, hiding the browser's own address bar and tabs. Between the two, nothing is left but the visuals. It stays in step when fullscreen is left with Escape or F11, hides itself where the browser has no fullscreen (iOS Safari), and says so if a browser or policy refuses the request.
 - **Cosmic UI** — an animated Three.js / Vanta starfield and particle "spiderweb" background, custom cursors, and a boot-sequence intro.
 
 ---
