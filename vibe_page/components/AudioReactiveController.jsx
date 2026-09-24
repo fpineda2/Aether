@@ -18,6 +18,7 @@ const VOICE_STYLE_LABELS = {
   strands: "Strands",
   particles: "Particles",
   harmonics: "Harmonics",
+  ripples: "Ripples",
   off: "Off",
 };
 
@@ -27,6 +28,13 @@ const VOICE_STYLE_LABELS = {
 // at runtime meant the picker's button showed a generic fallback label until
 // the request resolved — a visible flash/lag on every page load for content
 // that's static at build time anyway.
+//
+// `vocals` (optional): an isolated vocal stem for the track, in
+// public/audio/stems/. When present, the voice visuals read that instead of
+// estimating the voice from the full mix — exact instead of a best guess.
+// A stem can come straight from the artist, or be split from the finished
+// song once with a separation tool such as Demucs. It must line up with the
+// song from the very first sample (same start, same length).
 const DEMO_TRACKS = [
   { file: "Salesforce Tower - Adrian Campos Ortega.m4a", label: "Salesforce Tower - Adrian Campos Ortega" },
   { file: "Tekken 9 - Adrian Campos Ortega.m4a", label: "Tekken 9 - Adrian Campos Ortega" },
@@ -38,6 +46,7 @@ export default function AudioReactiveController({
   defaultSrc = "/audio/portal.mp3",
 }) {
   const audioRef = useRef(null);
+  const stemRef = useRef(null);
   const ctrlRef = useRef(null);
   // Holds { controller, stream } while a tab/system audio capture is live —
   // unlike ctrlRef (built once for the stable <audio> element), this is
@@ -46,6 +55,7 @@ export default function AudioReactiveController({
   const pickerRef = useRef(null);
   const autoPlayRef = useRef(false);
   const [src, setSrc] = useState(defaultSrc);
+  const [stemSrc, setStemSrc] = useState("");
   const [playing, setPlaying] = useState(false);
   const [capturing, setCapturing] = useState(false);
   const [err, setErr] = useState("");
@@ -111,6 +121,7 @@ export default function AudioReactiveController({
   useEffect(() => {
     if (!audioRef.current) return;
     ctrlRef.current = createAudioReactiveController(audioRef.current, {
+      stemEl: stemRef.current,
       onError: (e) => setErr(e?.message || "Audio analysis failed"),
     });
     return () => {
@@ -127,6 +138,11 @@ export default function AudioReactiveController({
       }
     };
   }, []);
+
+  // Point voice analysis at the stem whenever the current track has one.
+  useEffect(() => {
+    ctrlRef.current?.setVoiceStem(!!stemSrc);
+  }, [stemSrc]);
 
   // Turning interactive mode off stops the pulses and whatever's feeding them.
   useEffect(() => {
@@ -267,12 +283,25 @@ export default function AudioReactiveController({
   // instead of just loading the source and waiting for a separate click.
   // The actual play() happens in the useLayoutEffect above, once the new
   // src has actually landed on the <audio> element.
-  function playSrc(newSrc) {
+  function playSrc(newSrc, newStemSrc = "") {
     ctrlRef.current?.stop();
     stopCapture();
     setErr("");
     autoPlayRef.current = true;
     setSrc(newSrc);
+    setStemSrc(newStemSrc);
+  }
+
+  // Pairs an isolated vocal stem with whatever track is currently loaded.
+  // Replaced the moment a different track is picked (playSrc clears it).
+  function onStemFile(e) {
+    const f = e.target.files?.[0];
+    e.target.value = "";
+    if (!f) return;
+    const ext = f.name.split(".").pop()?.toLowerCase();
+    const knownType = ext && EXT_MIME[ext];
+    const file = knownType ? new File([f], f.name, { type: knownType }) : f;
+    setStemSrc(URL.createObjectURL(file));
   }
 
   function onFile(e) {
@@ -287,7 +316,11 @@ export default function AudioReactiveController({
   function onSelectTrack(file) {
     if (!file) return;
     setPickerOpen(false);
-    playSrc(`/audio/${encodeURIComponent(file)}`);
+    const track = DEMO_TRACKS.find((t) => t.file === file);
+    playSrc(
+      `/audio/${encodeURIComponent(file)}`,
+      track?.vocals ? `/audio/stems/${encodeURIComponent(track.vocals)}` : ""
+    );
   }
 
   async function togglePlay() {
@@ -320,6 +353,8 @@ export default function AudioReactiveController({
     <>
       {/* Stable element so the Web Audio source node stays valid across toggles */}
       <audio ref={audioRef} src={src} loop hidden />
+      {/* Vocal stem: analyzed only, never heard — kept in sync by the controller */}
+      <audio ref={stemRef} src={stemSrc || undefined} loop hidden preload="auto" />
       {active && (
         <div style={{ marginTop: 10 }}>
           <div
@@ -488,10 +523,23 @@ export default function AudioReactiveController({
               🎤 Voice visuals &mdash; follows the vocals, not the beat
             </span>
             <span style={{ fontSize: 11, opacity: 0.6, maxWidth: 320, lineHeight: 1.4 }}>
-              The demo tracks are instrumental, so here it traces the lead
-              melody instead. For the full effect, use your own track or
-              capture a song with vocals.
+              {capturing
+                ? "Reading: live voice filter — a best guess from the full mix."
+                : stemSrc
+                ? "Reading: vocal stem — exact, only the voice."
+                : "Reading: live voice filter — a best guess from the full mix. It stays quiet until it hears a sung pitch, so the instrumental demo tracks will mostly stay still. Add the track's vocal stem for an exact read."}
             </span>
+            {!capturing && (
+              <label style={{ fontSize: 12, opacity: 0.85, cursor: "pointer", color: "#67e8f9" }}>
+                {stemSrc ? "🎙 Replace vocal stem" : "🎙 Add vocal stem (optional)"}
+                <input
+                  type="file"
+                  accept="audio/*"
+                  onChange={onStemFile}
+                  style={{ display: "none" }}
+                />
+              </label>
+            )}
             <div
               style={{
                 display: "flex",

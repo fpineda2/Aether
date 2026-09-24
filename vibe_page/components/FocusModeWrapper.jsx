@@ -13,8 +13,14 @@
 // the AudioContext and killing the very background animations this feature
 // is supposed to leave running. display:none keeps it all mounted and
 // working underneath while removing it from view and layout.
+//
+// The fullscreen toggle sits in the same corner cluster: between them, a
+// visitor can drop the page's own content AND the browser's chrome around
+// it. They share one flex row so neither ever lands on top of the other as
+// their labels change width.
 
 import { useState } from "react";
+import FullscreenToggle from "./FullscreenToggle";
 
 export default function FocusModeWrapper({ children }) {
   const [hidden, setHidden] = useState(false);
@@ -23,49 +29,43 @@ export default function FocusModeWrapper({ children }) {
     <>
       <div style={hidden ? { display: "none" } : undefined}>{children}</div>
 
-      {!hidden ? (
+      <div
+        style={{
+          position: "fixed",
+          top: 20,
+          right: 20,
+          zIndex: 2147483647,
+          display: "flex",
+          gap: 8,
+          alignItems: "center",
+          flexWrap: "wrap",
+          justifyContent: "flex-end",
+        }}
+      >
+        <FullscreenToggle />
         <button
-          onClick={() => setHidden(true)}
-          title="Hide the page content — just the visuals, nothing else"
+          onClick={() => setHidden((h) => !h)}
+          title={
+            hidden
+              ? "Bring the page content back"
+              : "Hide the page content — just the visuals, nothing else"
+          }
           style={{
-            position: "fixed",
-            top: 20,
-            right: 20,
-            zIndex: 2147483647,
             padding: "10px 16px",
             background: "rgba(20,20,40,0.9)",
             color: "#fff",
             border: "1px solid rgba(138,43,226,0.6)",
             borderRadius: 8,
             cursor: "pointer",
-            boxShadow: "0 0 12px rgba(138,43,226,0.5)",
+            boxShadow: `0 0 12px rgba(138,43,226,${hidden ? 0.7 : 0.5})`,
             fontSize: 13,
+            fontFamily: "inherit",
+            whiteSpace: "nowrap",
           }}
         >
-          Only Background
+          {hidden ? "Show Page" : "Only Background"}
         </button>
-      ) : (
-        <button
-          onClick={() => setHidden(false)}
-          title="Bring the page content back"
-          style={{
-            position: "fixed",
-            top: 20,
-            right: 20,
-            zIndex: 2147483647,
-            padding: "10px 16px",
-            background: "rgba(20,20,40,0.9)",
-            color: "#fff",
-            border: "1px solid rgba(138,43,226,0.6)",
-            borderRadius: 8,
-            cursor: "pointer",
-            boxShadow: "0 0 12px rgba(138,43,226,0.7)",
-            fontSize: 13,
-          }}
-        >
-          Show Page
-        </button>
-      )}
+      </div>
     </>
   );
 }
