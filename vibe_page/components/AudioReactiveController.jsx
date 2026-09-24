@@ -13,6 +13,7 @@ import {
   createStreamReactiveController,
 } from "../lib/audioReactive";
 import { VOICE_STYLES, VOICE_STYLE_KEY } from "./VoiceVisualizer";
+import styles from "../styles/Visualizer.module.css";
 
 const VOICE_STYLE_LABELS = {
   strands: "Strands",
@@ -60,7 +61,6 @@ export default function AudioReactiveController({
   const [capturing, setCapturing] = useState(false);
   const [err, setErr] = useState("");
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [hoveredFile, setHoveredFile] = useState(null);
   const [voiceStyle, setVoiceStyle] = useState("strands");
 
   // Read the remembered voice style after mount (localStorage isn't
@@ -347,7 +347,6 @@ export default function AudioReactiveController({
     ? decodeURIComponent(src.slice("/audio/".length))
     : "";
   const currentTrack = DEMO_TRACKS.find((t) => t.file === currentBundledFile);
-  const playBg = playing ? "rgba(168,85,247,0.35)" : "rgba(59,130,246,0.25)";
 
   return (
     <>
@@ -356,272 +355,146 @@ export default function AudioReactiveController({
       {/* Vocal stem: analyzed only, never heard — kept in sync by the controller */}
       <audio ref={stemRef} src={stemSrc || undefined} loop hidden preload="auto" />
       {active && (
-        <div style={{ marginTop: 10 }}>
-          <div
-            style={{
-              display: "flex",
-              gap: 10,
-              alignItems: "center",
-              flexWrap: "wrap",
-            }}
-          >
-          {/* One control, not two: picking a track and playing it are the
-              same action, so this is a single pill — play/pause on the
-              left, track picker on the right — instead of two separate
-              buttons sitting side by side. */}
-          <div
-            ref={pickerRef}
-            style={{
-              position: "relative",
-            }}
-          >
-            {/* This inner wrapper owns the rounded-pill clip. The dropdown
-                below must NOT be a descendant of an overflow:hidden box — it
-                positions itself via `top: calc(100% + 6px)`, i.e. entirely
-                outside this wrapper's own (button-height-only) box, so an
-                overflow:hidden here would silently clip the whole open
-                dropdown to nothing. Functionally "open" (in React state,
-                in the DOM) but invisible and un-clickable — which is exactly
-                what looked like "the arrow does nothing" from the outside. */}
-            <div
-              style={{
-                display: "flex",
-                borderRadius: 10,
-                border: "1px solid rgba(255,255,255,0.15)",
-                background: playBg,
-                overflow: "hidden",
-              }}
-            >
-              <button
-                onClick={togglePlay}
-                style={{
-                  padding: "6px 14px",
-                  border: "none",
-                  background: "transparent",
-                  color: "#fff",
-                  cursor: "pointer",
-                  fontSize: 13,
-                  fontFamily: "inherit",
-                  // A long track label (e.g. "Salesforce Tower - Adrian Campos
-                  // Ortega") must not be allowed to grow or wrap this button —
-                  // without minWidth:0 a flex child won't shrink below its
-                  // content's natural width, so a long label could push the
-                  // whole pill wider than its container, carrying the caret
-                  // button off past the visible edge. Truncate instead.
-                  minWidth: 0,
-                  maxWidth: 220,
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {playing ? "⏸" : "▶"} {currentTrack ? currentTrack.label : "Play visualizer track"}
-              </button>
+        <div>
+          {/* Each way of feeding the visualizer gets its own labeled block.
+              They were a single crowded row of 12px text before, which made
+              the file picker, the tab capture and the voice styles read as
+              footnotes — people never found them. */}
+          <div className={styles.group}>
+            <div className={styles.groupLabel}>Choose a track</div>
+            <p className={styles.groupHint}>
+              Picking a track plays it — these are original pieces written for Aether.
+            </p>
+            <div className={styles.row}>
+              {/* One control, not two: picking a track and playing it are the
+                  same action, so this is a single pill — play/pause on the
+                  left, track picker on the right. */}
+              <div ref={pickerRef} className={styles.pickerWrap}>
+                <div className={`${styles.pill} ${playing ? styles.pillOn : ""}`}>
+                  <button onClick={togglePlay} className={styles.pillPlay}>
+                    {playing ? "⏸" : "▶"} {currentTrack ? currentTrack.label : "Play a track"}
+                  </button>
+                  <button
+                    onClick={() => setPickerOpen((o) => !o)}
+                    title="Choose a track"
+                    aria-expanded={pickerOpen}
+                    className={styles.pillCaret}
+                  >
+                    ▾
+                  </button>
+                </div>
 
-              <button
-                onClick={() => setPickerOpen((o) => !o)}
-                title="Choose a track"
-                style={{
-                  padding: "6px 10px",
-                  border: "none",
-                  borderLeft: "1px solid rgba(255,255,255,0.18)",
-                  background: "transparent",
-                  color: "#fff",
-                  cursor: "pointer",
-                  fontSize: 13,
-                  fontFamily: "inherit",
-                  flexShrink: 0,
-                }}
-              >
-                ▾
-              </button>
-            </div>
-
-            {pickerOpen && (
-              <div
-                style={{
-                  position: "absolute",
-                  top: "calc(100% + 6px)",
-                  left: 0,
-                  zIndex: 20,
-                  minWidth: 240,
-                  maxHeight: 220,
-                  overflowY: "auto",
-                  background: "#132039",
-                  border: "1px solid rgba(255,255,255,0.15)",
-                  borderRadius: 10,
-                  padding: 4,
-                  boxShadow: "0 12px 28px rgba(0,0,0,0.45)",
-                }}
-              >
-                {DEMO_TRACKS.map((t) => {
-                  const isHovered = hoveredFile === t.file;
-                  const isSelected = t.file === currentBundledFile;
-                  return (
-                    <div
-                      key={t.file}
-                      data-track-option={t.file}
-                      onClick={() => onSelectTrack(t.file)}
-                      onMouseEnter={() => setHoveredFile(t.file)}
-                      onMouseLeave={() => setHoveredFile(null)}
-                      style={{
-                        padding: "7px 10px",
-                        borderRadius: 7,
-                        fontSize: 13,
-                        fontFamily: "inherit",
-                        cursor: "pointer",
-                        background: isHovered ? "rgba(103,232,249,0.18)" : "transparent",
-                        color: isHovered ? "#67e8f9" : "#fff",
-                        fontWeight: isSelected ? 600 : 400,
-                      }}
-                    >
-                      {t.label}
-                    </div>
-                  );
-                })}
+                {pickerOpen && (
+                  <div className={styles.menu}>
+                    {DEMO_TRACKS.map((t) => (
+                      <div
+                        key={t.file}
+                        data-track-option={t.file}
+                        onClick={() => onSelectTrack(t.file)}
+                        className={`${styles.menuItem} ${
+                          t.file === currentBundledFile ? styles.menuItemOn : ""
+                        }`}
+                      >
+                        {t.label}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
-            )}
+
+              <label className={styles.secondary}>
+                🎧 Use my own
+                <input type="file" accept="audio/*" onChange={onFile} style={{ display: "none" }} />
+              </label>
+            </div>
           </div>
 
-          <label style={{ fontSize: 12, opacity: 0.85, cursor: "pointer" }}>
-            🎧 Use my own track
-            <input
-              type="file"
-              accept="audio/*"
-              onChange={onFile}
-              style={{ display: "none" }}
-            />
-          </label>
-
-          <a
-            href="/challenge"
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{
-              fontSize: 12,
-              opacity: 0.85,
-              color: "#67e8f9",
-              textDecoration: "none",
-            }}
-          >
-            🎼 Complete the Challenge
-          </a>
+          {/* Lets a visitor's own music — Spotify, Apple Music, anything —
+              drive the visualizer without uploading a file. Can't read those
+              streams directly (DRM), so this captures whatever's already
+              playing out loud from a shared tab, the same way a microphone
+              would. Picking a track above and capturing are mutually
+              exclusive; each stops the other. */}
+          <div className={styles.group}>
+            <div className={styles.groupLabel}>Or use what&rsquo;s already playing</div>
+            <p className={styles.groupHint}>
+              {capturing
+                ? "Listening to the shared tab — play anything there and the visuals follow."
+                : "Shares a browser tab's audio, not your camera or mic. Pick the tab with your music and check \"share tab audio\"."}
+            </p>
+            <button
+              onClick={capturing ? stopCapture : startCapture}
+              title="Opens your browser's own tab-sharing picker — not a camera or microphone request."
+              className={`${styles.secondary} ${capturing ? styles.secondaryOn : ""}`}
+            >
+              {capturing ? (
+                <>
+                  <span className={styles.live}>⏹</span> Stop capturing
+                </>
+              ) : (
+                "Capture tab audio"
+              )}
+            </button>
           </div>
 
           {/* The vocal ribbon (components/VoiceVisualizer.jsx) — its own
               section because it follows the singer, not the beat. */}
-          <div
-            style={{
-              marginTop: 16,
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "flex-start",
-              gap: 6,
-            }}
-          >
-            <span style={{ fontSize: 12, opacity: 0.75 }}>
-              🎤 Voice visuals &mdash; follows the vocals, not the beat
-            </span>
-            <span style={{ fontSize: 11, opacity: 0.6, maxWidth: 320, lineHeight: 1.4 }}>
-              {capturing
-                ? "Reading: live voice filter — a best guess from the full mix."
-                : stemSrc
-                ? "Reading: vocal stem — exact, only the voice."
-                : "Reading: live voice filter — a best guess from the full mix. It stays quiet until it hears a sung pitch, so the instrumental demo tracks will mostly stay still. Add the track's vocal stem for an exact read."}
-            </span>
-            {!capturing && (
-              <label style={{ fontSize: 12, opacity: 0.85, cursor: "pointer", color: "#67e8f9" }}>
-                {stemSrc ? "🎙 Replace vocal stem" : "🎙 Add vocal stem (optional)"}
-                <input
-                  type="file"
-                  accept="audio/*"
-                  onChange={onStemFile}
-                  style={{ display: "none" }}
-                />
-              </label>
-            )}
-            <div
-              style={{
-                display: "flex",
-                borderRadius: 10,
-                border: "1px solid rgba(255,255,255,0.15)",
-                overflow: "hidden",
-              }}
-            >
-              {VOICE_STYLES.map((s, i) => (
+          <div className={styles.group}>
+            <div className={styles.groupLabel}>Voice visuals</div>
+            <p className={styles.groupHint}>
+              A second visual that follows the vocals: pitch, phrasing, and the
+              color of each vowel. Pick a shape.
+            </p>
+            <div className={styles.chips}>
+              {VOICE_STYLES.map((s) => (
                 <button
                   key={s}
                   onClick={() => pickVoiceStyle(s)}
                   aria-pressed={voiceStyle === s}
-                  style={{
-                    padding: "5px 11px",
-                    border: "none",
-                    borderLeft: i ? "1px solid rgba(255,255,255,0.15)" : "none",
-                    background: voiceStyle === s ? "rgba(236,72,153,0.32)" : "transparent",
-                    color: "#fff",
-                    cursor: "pointer",
-                    fontSize: 12,
-                    fontFamily: "inherit",
-                  }}
+                  className={`${styles.chip} ${voiceStyle === s ? styles.chipOn : ""}`}
                 >
                   {VOICE_STYLE_LABELS[s]}
                 </button>
               ))}
             </div>
-          </div>
 
-          {/* Lets a visitor's own music — Spotify, Apple Music, anything —
-              drive the visualizer without uploading a file. Can't read
-              those streams directly (DRM), so instead this captures
-              whatever's already playing out loud from a shared tab/screen,
-              the same way a microphone would. A divider + real breathing
-              room (not just a small margin) separates this from the
-              local-track controls above so the two read as distinct
-              options, not one crowded row — picking a local/bundled track
-              or starting a capture are mutually exclusive, each stops the
-              other. */}
-          <div
-            style={{
-              borderTop: "1px solid rgba(255,255,255,0.12)",
-              marginTop: 22,
-              paddingTop: 18,
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "flex-start",
-              gap: 6,
-            }}
-          >
-            <span style={{ fontSize: 12, opacity: 0.75 }}>
-              Or use what&rsquo;s already playing
-            </span>
-            <span style={{ fontSize: 12, opacity: 0.75 }}>
-              {capturing
-                ? "🔴 Listening to the shared tab's audio — play anything there and the visuals will follow."
-                : "Shares a browser tab's audio, not your camera or mic — pick the tab with your music and check \"share tab audio.\""}
-            </span>
-            <button
-              onClick={capturing ? stopCapture : startCapture}
-              title="Opens your browser's own tab-sharing picker — not a camera or microphone request. Pick the tab with your music and check its audio option."
-              style={{
-                padding: "6px 14px",
-                borderRadius: 10,
-                border: "1px solid rgba(255,255,255,0.15)",
-                background: capturing ? "rgba(248,113,113,0.28)" : "rgba(103,232,249,0.16)",
-                color: "#fff",
-                cursor: "pointer",
-                fontSize: 13,
-                fontFamily: "inherit",
-              }}
+            <div
+              className={`${styles.status} ${!capturing && stemSrc ? styles.statusExact : ""}`}
+              title={
+                !capturing && stemSrc
+                  ? "Reading the track's isolated vocal stem — only the voice, nothing else."
+                  : "Estimated from the full mix: it stays quiet until it hears a sung pitch, so instrumental tracks barely move it."
+              }
             >
-              {capturing ? "⏹ Stop Capturing" : "🖥️ Capture Tab Audio"}
-            </button>
+              <span className={styles.statusDot} />
+              {!capturing && stemSrc
+                ? "Reading this track's vocal stem — exact"
+                : "Following the voice by ear — add a vocal stem for an exact read"}
+            </div>
+
+            {!capturing && (
+              <div className={styles.row} style={{ marginTop: 10 }}>
+                <label className={styles.secondary}>
+                  {stemSrc ? "Replace vocal stem" : "Add vocal stem"}
+                  <input
+                    type="file"
+                    accept="audio/*"
+                    onChange={onStemFile}
+                    style={{ display: "none" }}
+                  />
+                </label>
+              </div>
+            )}
           </div>
 
-          {err && (
-            <div style={{ marginTop: 10 }}>
-              <span style={{ color: "#f87171", fontSize: 12 }}>{err}</span>
-            </div>
-          )}
+          <a href="/challenge" target="_blank" rel="noopener noreferrer" className={styles.cta}>
+            <span>
+              <strong>Score a piece for Aether</strong> — the open challenge for musicians
+            </span>
+            <span className={styles.ctaArrow}>→</span>
+          </a>
+
+          {err && <div className={styles.error}>{err}</div>}
         </div>
       )}
     </>
