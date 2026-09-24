@@ -51,12 +51,18 @@
   cursor: pointer;
 }
 .primaryBtn {
-  padding: 10px 14px;
+  padding: 10px 18px;
   border-radius: 12px;
   background: linear-gradient(90deg,#6ae0ff,#7a4bff);
   border:none;
   color:#031226;
-  font-weight:800;
+  /* Same script face as the visualizer's "Turn on Immersive Mode": these are
+     the two panels' primary invitations, so they speak in the same voice.
+     Sized up because cursive reads smaller than an upright face. */
+  font-family: var(--font-script);
+  font-size: 1.35rem;
+  font-weight:700;
+  line-height: 1.25;
   cursor:pointer;
 }
 .auxBtn {
