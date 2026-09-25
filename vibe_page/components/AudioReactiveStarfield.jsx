@@ -29,18 +29,37 @@ import { useEffect } from "react";
 const FLASH_MIN_INTERVAL_MS = 340; // caps the global flash under ~3/sec (WCAG general flash threshold)
 const FLASH_MAX = 0.75; // was 1.2 — smaller peak swing in overall brightness
 const FLASH_RADIUS_FRACTION = 0.55; // was 0.8 — flash no longer washes the whole viewport
-const HUE_CALM = 140; // green
+const HUE_CALM = 205; // blue — quiet passages (was green, which clashed with the palette)
 const HUE_LOUD = 26; // deep orange — stays well clear of the 0–10deg red-flash danger zone
 
 // The web's own color (shared across every node/string, not the flash) is
 // driven by the spectral centroid — where the music's energy is currently
-// centered, bass-heavy through treble-heavy — mapped across the full red
-// (bass) to violet (treble) range, unlike the flash's clamped range above.
-// Safe to use red/small hue values here since this is a per-node/per-string
-// small-area color, not the large-area flash the WCAG concern above is
-// actually about (see PHOTOSENSITIVITY SAFETY NOTES at the top of the file).
-const WEB_HUE_START = 0; // red — bass-heavy
-const WEB_HUE_END = 280; // violet — treble-heavy
+// centered, bass-heavy through treble-heavy.
+//
+// Stops rather than one straight sweep: a plain red-to-violet ramp put its
+// middle on green, and most music keeps its centroid in the low-mids, so
+// song after song came out green. Only that middle stop changed — bass is
+// still red, high-mids cyan, treble violet. 360 rather than 0 for red so
+// the run down to blue passes through magenta instead of back through
+// green. Safe to use red here: this is small-area per-node color, not the
+// large-area flash the WCAG note at the top of the file is about.
+const WEB_HUE_STOPS = [
+  { at: 0, hue: 360 }, // bass — red
+  { at: 0.33, hue: 215 }, // low-mid — blue
+  { at: 0.62, hue: 190 }, // high-mid — cyan
+  { at: 1, hue: 280 }, // treble — violet
+];
+
+// Hue for a centroid position 0..1, interpolated between the stops above.
+function webHueAt(f) {
+  const x = Math.min(1, Math.max(0, f));
+  for (let i = 1; i < WEB_HUE_STOPS.length; i++) {
+    const a = WEB_HUE_STOPS[i - 1];
+    const b = WEB_HUE_STOPS[i];
+    if (x <= b.at) return a.hue + ((x - a.at) / (b.at - a.at)) * (b.hue - a.hue);
+  }
+  return WEB_HUE_STOPS[WEB_HUE_STOPS.length - 1].hue;
+}
 
 // The four .cosmic-gradient blobs each track a different slice of the
 // spectrum — sub-bass through treble — so they breathe independently
@@ -208,7 +227,7 @@ export default function AudioReactiveStarfield() {
           }
           if (total > 4) {
             const centroidFrac = (weighted / total - binLo) / (binHi - binLo);
-            const target = WEB_HUE_START + centroidFrac * (WEB_HUE_END - WEB_HUE_START);
+            const target = webHueAt(centroidFrac);
             webHue += (target - webHue) * 0.04;
           }
         }

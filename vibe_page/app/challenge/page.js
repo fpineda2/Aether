@@ -86,7 +86,7 @@ export default function ChallengePage() {
           </div>
 
           <div className={styles.bandRow}>
-            <span className={styles.bandSwatch} style={{ color: "hsl(90,55%,55%)", background: "hsl(90,55%,55%)" }} />
+            <span className={styles.bandSwatch} style={{ color: "hsl(215,75%,60%)", background: "hsl(215,75%,60%)" }} />
             <div>
               <div className={styles.bandName}>Low-mid</div>
               <div className={styles.bandRange}>~1,000&ndash;3,400 Hz &middot; low vocals, guitar/piano body, warmth</div>
@@ -98,7 +98,7 @@ export default function ChallengePage() {
             </div>
             <div className={styles.bandEnv}>
               <svg width="84" height="32" viewBox="0 0 88 34">
-                <path d="M2 30 C 8 10, 14 8, 24 8 C 44 8, 50 30, 86 30" fill="none" stroke="hsl(90,55%,55%)" strokeWidth="2.5" strokeLinecap="round" />
+                <path d="M2 30 C 8 10, 14 8, 24 8 C 44 8, 50 30, 86 30" fill="none" stroke="hsl(215,75%,60%)" strokeWidth="2.5" strokeLinecap="round" />
               </svg>
               <span className={styles.bandEnvLabel}>quicker swell &middot; shorter tail</span>
             </div>
@@ -213,8 +213,8 @@ export default function ChallengePage() {
             <p>
               Set by where the music&rsquo;s energy is currently centered
               across the spectrum. Bass-heavy passages drift the entire web
-              toward red; bright, treble-forward ones drift it toward
-              violet. It eases slowly, so it reads as the web&rsquo;s color
+              toward red; the low-mids sit in blue; bright, treble-forward
+              ones drift it toward cyan and violet. It eases slowly, so it reads as the web&rsquo;s color
               genuinely moving through a piece — not flickering per note.
             </p>
           </div>
@@ -226,7 +226,7 @@ export default function ChallengePage() {
             </div>
             <p>
               Tracks how loud and impactful the beats have been lately —
-              quiet, sparse sections settle toward a calm green; loud,
+              quiet, sparse sections settle toward a calm blue; loud,
               bass-heavy stretches push it toward a warm orange. A track with
               a real dynamic arc — hushed intro building into a huge, loud
               climax — will visibly shift color along the way, not just get
