@@ -294,14 +294,30 @@ export default function AudioReactiveController({
 
   // Pairs an isolated vocal stem with whatever track is currently loaded.
   // Replaced the moment a different track is picked (playSrc clears it).
-  function onStemFile(e) {
+  //
+  // Starts the track if it isn't already playing, the same way picking a
+  // track does: adding a stem with nothing playing otherwise looks like the
+  // button did nothing, when in fact it armed an exact read you can't see
+  // until there's music.
+  async function onStemFile(e) {
     const f = e.target.files?.[0];
     e.target.value = "";
     if (!f) return;
     const ext = f.name.split(".").pop()?.toLowerCase();
     const knownType = ext && EXT_MIME[ext];
     const file = knownType ? new File([f], f.name, { type: knownType }) : f;
+    setErr("");
     setStemSrc(URL.createObjectURL(file));
+
+    const el = audioRef.current;
+    if (!el || playing) return; // already running — the stem joins in sync
+    try {
+      await el.play(); // still inside the file-picker's user gesture
+      await ctrlRef.current?.start();
+      setPlaying(true);
+    } catch (err) {
+      setErr(err?.message || "Couldn't start audio");
+    }
   }
 
   function onFile(e) {
