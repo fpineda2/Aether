@@ -302,12 +302,15 @@ export default function AudioReactiveController({
   // instead of just loading the source and waiting for a separate click.
   // The actual play() happens in the useLayoutEffect above, once the new
   // src has actually landed on the <audio> element.
-  function playSrc(newSrc, newStemSrc = "", name = "") {
+  // `autoPlay` is false for the first half of the two-file flow: starting the
+  // song the moment it's chosen would run it ahead of the vocal that hasn't
+  // been picked yet, and the two would never line up.
+  function playSrc(newSrc, newStemSrc = "", name = "", autoPlay = true) {
     setOwnName(name);
     ctrlRef.current?.stop();
     stopCapture();
     setErr("");
-    autoPlayRef.current = true;
+    autoPlayRef.current = autoPlay;
     setSrc(newSrc);
     setStemSrc(newStemSrc);
   }
@@ -333,6 +336,7 @@ export default function AudioReactiveController({
     const el = audioRef.current;
     if (!el || playing) return; // already running — the stem joins in sync
     try {
+      el.currentTime = 0; // both files start together, so they stay together
       await el.play(); // still inside the file-picker's user gesture
       await ctrlRef.current?.start();
       setPlaying(true);
@@ -350,6 +354,7 @@ export default function AudioReactiveController({
   }
 
 
+
   function onFile(e) {
     const f = e.target.files?.[0];
     if (!f) return;
@@ -357,7 +362,8 @@ export default function AudioReactiveController({
     const knownType = ext && EXT_MIME[ext];
     const file = knownType ? new File([f], f.name, { type: knownType }) : f;
     // Drop the extension: "my_song.wav" reads better as "my_song".
-    playSrc(URL.createObjectURL(file), "", f.name.replace(/\.[^.]+$/, ""));
+    // Waiting on a vocal file? Load but don't start — see playSrc.
+    playSrc(URL.createObjectURL(file), "", f.name.replace(/\.[^.]+$/, ""), !awaitingStem);
   }
 
   function onSelectTrack(file) {
@@ -512,7 +518,8 @@ export default function AudioReactiveController({
                 <div>
                   <strong>Now add the separated vocal</strong>
                   <div className={styles.groupHint} style={{ margin: "3px 0 0" }}>
-                    The vocal-only version of the same song, starting at the same moment.
+                    The vocal-only version of the same song, starting at the same
+                    moment. Playback waits for it, so the two stay in step.
                   </div>
                 </div>
                 <button onClick={() => stemInputRef.current?.click()} className={`${styles.secondary} ${styles.accent}`}>
