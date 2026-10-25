@@ -109,6 +109,37 @@ Notes on the two that surprised me:
   than real singing (median 222c vs 92c over 0.5s), because with no voice to
   hold, the tracker hops between instruments.
 
+### Separating the voice in the browser — tried, dropped
+
+Prototyped and measured in Oct 2026: estimate a vocal track from the mix when
+someone loads a file, in a Web Worker, with no model and no network. The method
+was REPET-SIM — a song's backing repeats while the voice does not, so for each
+moment you take the median of the moments that look most like it, call that the
+accompaniment, and keep what stands above it. About 10 seconds of processing per
+45 seconds of audio.
+
+Measured against Demucs stems on the three songs, compared with the by-ear
+filter that ships (net = caught% gained + false% removed):
+
+| | banda | norteño | rap |
+|---|---|---|---|
+| estimate fed as a stem (trusted) | −46 | −11 | −3 |
+| estimate run through the normal gates | **−11** | **+4** | **−5** |
+| pitch within a quarter-tone | 78→71% | 70→53% | 77→60% |
+
+Two lessons worth keeping:
+
+- **Never feed an estimate in as a stem.** Stem mode trusts every sound it is
+  given, and whatever didn't repeat — improvised brass, fills, cymbals — becomes
+  "voice". False positives hit 86%.
+- **Pitch is what you lose.** Spectral masking leaves artefacts that pull the
+  pitch estimate 20–30 cents off, and pitch is the part the by-ear filter
+  already does well. That trade is bad for a visual whose height *is* the pitch.
+
+Not ruled out for a different approach: a real separation model (ONNX +
+WebGPU, 10–40MB download) or a server running Demucs. Both were judged too
+costly for the benefit at this stage; neither was built.
+
 ### The adopted gate
 
 `noteCenterFactor` in `lib/voiceAnalysis.js`: the side/mid energy of the note
