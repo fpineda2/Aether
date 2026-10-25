@@ -55,45 +55,68 @@ testing next, and it prints the same keep/reject trade table.
 
 ## What's been measured (Oct 2026)
 
-45-second excerpts, three genres, split with `htdemucs`:
+45-second excerpts, three genres, split with `htdemucs`, plus a synthetic
+singer (`make_test_singer.py`) whose exact pitch is known.
 
-| | banda (Cuisillos) | norteño (Inquietos) | rap (Akwid) |
-|---|---|---|---|
-| sung frames caught | 96% | 99% | 70% |
-| median pitch gap | 6c | 7c | 17c |
-| within a quarter-tone | 74% | 63% | 68% |
-| **false voice in gaps** | 72% | 91% | 42% |
+| | banda | norteño | rap | synthetic |
+|---|---|---|---|---|
+| sung frames caught | 96% → **93%** | 99% → **94%** | 70% → **60%** | 99% → **88%** |
+| false voice in gaps | 72% → **37%** | 91% → **80%** | 42% → **16%** | 2% → **0%** |
+| pitch within a quarter-tone | 74% → **78%** | 63% → **70%** | 68% → **77%** | 91% → **98%** |
 
-Conclusions:
+(before → after the note-centeredness gate described below)
 
-- **Pitch tracking is solid.** When it is on the voice it sits within 6–17 cents
-  of the stem — far finer than anyone can see in a visual.
-- **Sustained lead instruments are the real failure.** A centered, harmonic,
-  held accordion or trumpet line passes every test the filter applies. This is
-  the 91% in norteño, and the large p75/p90 pitch errors are the tracker sliding
-  onto the accordion.
-- **Rapped vocals get missed** about a third of the time: speech is neither
-  sustained nor steadily pitched.
+Standing conclusions:
 
-### Ideas tested and rejected
+- **Pitch tracking is solid.** Where it tracks, it sits within a few cents of
+  the stem — finer than anyone can see in a visual.
+- **Deciding whether a voice is present at all is the weak part**, and
+  sustained centered lead instruments are why: a held accordion or trumpet
+  line passes nearly every test a spectrum can apply. Norteño remains the
+  hardest case.
+- **Rapped vocals still get missed** about 40% of the time. Speech is neither
+  sustained nor steadily pitched, and the acquisition gate wants both. This is
+  the next thing worth attacking.
 
-Both were measured on real mixes and failed, so neither is in the library:
+## Features tested
 
-- **Articulation, broad**: how much the whole spectral envelope moves over
-  ~100ms, on the theory that a singer's formants never sit still. It separates
-  voice from instruments cleanly on *isolated stems* (voice ~1.43 vs instruments
-  ~0.81) but not on a *mix*, where the whole arrangement churns: voiced frames
-  scored 1.535 against 1.556 for frames with no voice at all.
-- **Articulation, per-note**: the same idea restricted to the tracked note's own
-  overtone profile. Also flat (0.954 voiced vs 1.003 unvoiced) — when no one is
-  singing, the tracker is sitting on some instrument whose profile is being
-  churned by everything overlapping it.
+Each was computed in `explore.mjs` and scored against stem ground truth before
+any of it touched the library. "Net" is `kept voice % + rejected false voice %
+- 100`, so 0 means the feature is worthless and 100 means perfect.
 
-### Idea that did hold up
+| feature | net | verdict |
+|---|---|---|
+| **note centeredness** — side/mid on the tracked note's own overtones | **+34** | **adopted** |
+| pitch wander over 0.5s (a ceiling, not a floor) | +8…+29 | not used; overlaps with the above |
+| syllable-rate AM, 3–8 Hz, of the note's energy | +8 | too weak |
+| note width relative to the whole mix's width | +7 | normalizing destroys the signal |
+| harmonic-to-noise ratio at the note | +0 | useless |
+| vibrato, 4–8 Hz periodic pitch movement | +0 | useless |
+| articulation — whole-spectrum envelope movement | ~0 | separates on stems, flat on mixes |
+| articulation — the tracked note's overtone profile | ~0 | same |
 
-- **Maximum pitch wander.** Counter to expectation, false frames wander *more*
-  than real singing (median 222c vs 92c over 0.5s) because the tracker hops
-  between instruments. Dropping a note that wanders more than ~650c keeps 96% of
-  genuine singing while cutting 13% of false voice. Tightening to 300c cuts 40%
-  of the false voice but loses 22% of real singing, which brings back the
-  dropouts the note tracker exists to prevent. Not yet wired into the library.
+Notes on the two that surprised me:
+
+- **Articulation** was the strongest-looking idea on paper: a singer's mouth
+  never stops moving, an accordion's shape is fixed. On *isolated stems* it
+  separates cleanly (voice ~1.43 vs instruments ~0.81). On a *mix* it is flat
+  (1.535 voiced vs 1.556 unvoiced) because the whole arrangement churns —
+  "something moved" says nothing about whether it was a voice. The per-note
+  version failed too (0.954 vs 1.003): when nobody sings, the tracker is
+  sitting on an instrument whose profile is being churned by whatever overlaps
+  it.
+- **Pitch wander** is backwards from the intuition. False frames wander *more*
+  than real singing (median 222c vs 92c over 0.5s), because with no voice to
+  hold, the tracker hops between instruments.
+
+### The adopted gate
+
+`noteCenterFactor` in `lib/voiceAnalysis.js`: the side/mid energy of the note
+being considered, measured on its own overtones, faded between 0.20 (centered,
+full confidence) and 0.45 (wide, none). It gates **acquisition only**. Gating
+every frame scored slightly better on the three real songs but cost a third of
+a reverberant vocal's frames (99% → 65% on the synthetic fixture), because
+heavy stereo reverb and doubled rap vocals are genuinely wide. Gating just the
+decision to start following keeps instruments out while letting a wide voice
+stay once found.
+

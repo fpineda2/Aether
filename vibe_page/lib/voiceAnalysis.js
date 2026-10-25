@@ -62,6 +62,23 @@ const RELEASE_FRAMES = 9; // ~150ms without the voice before a note is let go
 // (consonants) are covered by RELEASE_FRAMES instead.
 const HOLD_RATIO = 0.4;
 
+// How centered a note is: its side energy over its mid energy, measured on
+// its own overtones. The stereo pass at the top already favours centered
+// sound across the whole spectrum, but nothing checked whether the ONE note
+// being followed is centered — and that turns out to be the strongest
+// voice/instrument cue of the several measured on real songs
+// (see tools/voice-accuracy/README.md). A lead vocal is mixed dead center;
+// the accordion or trumpet the tracker otherwise latches onto is wider.
+//
+// Applied when ACQUIRING a note, not while following one. A voice with heavy
+// stereo reverb or a doubled rap vocal is genuinely wide, and gating every
+// frame cost 34 points of a reverberant vocal (99% of its frames down to
+// 65%); gating only the decision to START following keeps instruments out
+// while letting a wide voice stay once found — most of the benefit, little
+// of the cost. Fades out rather than cutting hard, for the same reason.
+const NOTE_CENTER_FULL = 0.2; // at or below this, treat as fully centered
+const NOTE_CENTER_NONE = 0.45; // at or above this, treat as not the voice
+
 function median(arr, n) {
   // insertion sort — n is at most 9 here
   for (let i = 1; i < n; i++) {
@@ -128,6 +145,7 @@ export function createVoiceAnalyzer(ctx) {
   const voice = new Float32Array(N); // stereo + drum passes (== mix for a stem)
   const weighted = new Float32Array(N); // voice, faded out below ~350Hz for acquisition
   const noise = new Float32Array(N); // the percussive/unpitched part of `centered`
+  const sideMag = new Float32Array(N); // raw side level per bin, for noteCenterFactor
   const dilated = new Float32Array(N);
   const sideRatio = new Float32Array(N).fill(1);
   const hist = new Float32Array(N * HISTORY);
@@ -295,6 +313,21 @@ export function createVoiceAnalyzer(ctx) {
     return even > 0 && odd < even * 0.2;
   };
 
+  // 1 when the note at `hz` is mixed dead center, 0 when it's as wide as the
+  // instruments around it. Always 1 for a stem, which is the voice by
+  // definition and often carries its own stereo reverb.
+  const noteCenterFactor = (hz) => {
+    if (mode === "stem" || !hz) return 1;
+    let midSum = 0, sideSum = 0;
+    for (let h = 1; h <= SCORE_HARMONICS; h++) {
+      if (h * hz > 5000) break;
+      midSum += peakNear(mix, bin(h * hz), 1.5);
+      sideSum += peakNear(sideMag, bin(h * hz), 1.5);
+    }
+    if (midSum <= 0) return 0;
+    return clamp01((NOTE_CENTER_NONE - sideSum / midSum) / (NOTE_CENTER_NONE - NOTE_CENTER_FULL));
+  };
+
   // Full-range search, used to FIND a new note. conf 0 if nothing voice-like.
   function acquire() {
     let best = 0, bestHz = 0;
@@ -348,7 +381,7 @@ export function createVoiceAnalyzer(ctx) {
 
     if (missingOddOvertones(voice, bestHz)) bestHz *= 2;
 
-    const conf = harmonicity(weighted, bestHz) * formantFactor(voice, bestHz);
+    const conf = harmonicity(weighted, bestHz) * formantFactor(voice, bestHz) * noteCenterFactor(bestHz);
     return { hz: refinePitch(voice, bestHz), conf };
   }
 
@@ -502,6 +535,7 @@ export function createVoiceAnalyzer(ctx) {
         // share an overtone and drift in and out of phase, faking a centered
         // sound for a moment. A real centered voice stays centered, so the
         // fade uses the side/mid ratio averaged over the last ~0.2s.
+        sideMag[i] = s;
         const ratio = m > 0 ? s / m : 1;
         sideRatio[i] += (ratio - sideRatio[i]) * 0.08;
         centered[i] = mode === "stem" ? m : Math.max(0, m - s) * clamp01(1 - sideRatio[i] / 0.7);
