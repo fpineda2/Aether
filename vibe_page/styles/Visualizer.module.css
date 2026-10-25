@@ -219,6 +219,35 @@
   color: #67e8f9;
 }
 
+/* The "use my own" menu explains each choice, so nobody has to guess what a
+   separated vocal buys them. */
+.menuNote {
+  margin-top: 2px;
+  font-size: 0.75rem;
+  line-height: 1.35;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.menuItem:hover .menuNote {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+/* Step two of "song + separated vocal": the song is already playing, so this
+   is a prompt for what's still missing, not a modal in the way. */
+.step {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(103, 232, 249, 0.35);
+  background: rgba(103, 232, 249, 0.08);
+  font-size: 0.875rem;
+}
+
 .menuItemOn {
   font-weight: 600;
   color: #67e8f9;
