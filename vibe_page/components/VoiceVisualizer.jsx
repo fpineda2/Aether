@@ -90,7 +90,10 @@ const DOT_ROWS_RANGE = [5, 14];
 const ECHO_LINES = 12; // strands
 const ECHO_SPACING = 2; // frames between each strand's snapshot
 const RING_LIFE = 200; // frames a ripple lives (~3.3s)
-const RING_EVERY = 7; // frames between ripples while singing
+// A ring every 7 frames against a 200-frame life meant 29 of them alive
+// at once, each a 140-segment closed path, and on a sustained note they
+// packed into one bright mass instead of reading as separate ripples.
+const RING_EVERY = 9; // frames between ripples while singing (~22 alive at peak)
 
 function ribbonHue(u, shift = 0) {
   const p = u * (RIBBON_HUES.length - 1);
@@ -306,7 +309,10 @@ export default function VoiceVisualizer() {
         const k = i * 17 + Math.floor(frameCount / 3) * 131;
         const u = 0.08 + hash(k) * 0.84;
         const spread = (hash(k + 1) - 0.5) * amp * 2.2 * taper(u);
-        ctx.fillStyle = `hsla(${ribbonHue(u, hueShift)}, 70%, 85%, ${0.5 * breath})`;
+        // 85% lightness put these dots within a hair of white before any
+        // blending at all; the spray reads as breath from its scatter, not
+        // from being the brightest thing on screen.
+        ctx.fillStyle = `hsla(${ribbonHue(u, hueShift)}, 70%, 72%, ${0.5 * breath})`;
         ctx.fillRect(left + u * span, cy + wave(u, 0, shape, pitchScale, t) * amp * taper(u) + spread, 1.3, 1.3);
       }
     };
@@ -371,8 +377,12 @@ export default function VoiceVisualizer() {
       for (const ring of rings) {
         const life = ring.age / RING_LIFE;
         const R = 6 + ring.birthSize + life * maxR;
-        // Fades gently so the outer rings still carry their color
-        const alpha = Math.pow(1 - life, 0.6) * (0.45 + 0.55 * ring.level);
+        // Older rings give way faster than they used to: at 0.6 a ring
+        // still carried most of its brightness for most of its life, so
+        // every ring on screen was a bright one and they summed into a
+        // mass. The curve below keeps the newest few bright and lets the
+        // rest recede, which is what makes them read as depth.
+        const alpha = Math.pow(1 - life, 1.5) * (0.45 + 0.55 * ring.level);
         if (alpha < 0.01) continue;
         // Dark vowels cyan, bright vowels pink, and every ring drifts a
         // little further toward pink as it travels outward — the title's own
@@ -440,7 +450,15 @@ export default function VoiceVisualizer() {
         const span = spanOf();
         const left = (W - span) / 2;
         const cy = H * 0.5;
-        ctx.globalCompositeOperation = "lighter";
+        // "screen", not "lighter". Both brighten where strokes overlap,
+        // which is what gives the ribbon its glow, but additive blending
+        // adds channels and clips: two different hues crossing sum past
+        // 255 and land on flat white, so a loud passage bleached the
+        // ribbon's core to a colorless blob no matter which hue the vowel
+        // asked for (measured: luminance 255). Screen is 1-(1-a)(1-b) —
+        // it approaches white asymptotically instead of hitting it, so
+        // overlaps deepen and keep their color.
+        ctx.globalCompositeOperation = "screen";
         if (style === "strands") drawStrands(cy, left, span);
         else if (style === "particles") drawParticles(cy, left, span);
         else if (style === "harmonics") drawHarmonics(cy, left, span);
