@@ -24,6 +24,14 @@
 // The "aether-focus-hint" event is how the rest of the page points here:
 // the visualizer panel's hint fires it, and the cluster flashes so the
 // visitor knows which corner was meant. See styles in the module CSS.
+//
+// On a phone the captioned box is wider than the gap beside the centered
+// "Aether" wordmark, so it sat squarely on top of it. Below the md
+// breakpoint the cluster collapses to a single handle in the corner and
+// `open` expands it; the handle is hidden on wider screens, where the box
+// has room to say what it is. `open` is therefore a no-op on desktop, and
+// the CSS — not a width measured in JS — decides which applies, so there's
+// nothing to get wrong between the server render and the first paint.
 
 import { useEffect, useRef, useState } from "react";
 import FullscreenToggle from "./FullscreenToggle";
@@ -37,12 +45,16 @@ export default function FocusModeWrapper({ children }) {
   // usual remove-then-re-add-next-frame trick needs requestAnimationFrame,
   // which never fires while the tab is in the background.
   const [nudge, setNudge] = useState(0);
+  const [open, setOpen] = useState(false);
   const nudgeTimer = useRef(null);
 
   useEffect(() => {
     function onHint() {
       clearTimeout(nudgeTimer.current);
       setNudge((n) => n + 1);
+      // Flashing a collapsed handle would point at the right corner and
+      // still leave the visitor to guess what's behind it.
+      setOpen(true);
       // Unmounts the ring once it has had its say — and is what ends the
       // steady highlight shown instead of the flash under reduced motion.
       nudgeTimer.current = setTimeout(() => setNudge(0), 2800);
@@ -58,8 +70,16 @@ export default function FocusModeWrapper({ children }) {
     <>
       <div style={hidden ? { display: "none" } : undefined}>{children}</div>
 
-      <div className={styles.cluster}>
+      <div className={`${styles.cluster} ${open ? styles.clusterOpen : ""}`}>
         {nudge > 0 && <span key={nudge} className={styles.ring} aria-hidden="true" />}
+        <button
+          onClick={() => setOpen((o) => !o)}
+          aria-expanded={open}
+          aria-label={open ? "Close view options" : "Uninterrupted view options"}
+          className={styles.handle}
+        >
+          {open ? "✕" : "⛶"}
+        </button>
         <span className={styles.label}>Uninterrupted view</span>
         <div className={styles.row}>
           <FullscreenToggle />

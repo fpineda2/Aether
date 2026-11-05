@@ -114,6 +114,64 @@
   }
 }
 
+/* The collapsed form, phones only. The captioned box is wider than the
+   space either side of the centered "Aether" wordmark, so at this width it
+   covered the page's own title; a handle in the corner clears it. Hidden
+   above the breakpoint, where the box has room to introduce itself. */
+.handle {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  background: rgba(20, 20, 40, 0.9);
+  color: #fff;
+  border: 1px solid rgba(138, 43, 226, 0.6);
+  border-radius: 10px;
+  cursor: pointer;
+  box-shadow: 0 0 12px rgba(138, 43, 226, 0.5);
+  font-family: var(--font-ui);
+  font-size: 16px;
+  line-height: 1;
+}
+
+@media (max-width: 767px) {
+  .handle {
+    display: inline-flex;
+  }
+
+  /* Collapsed, the cluster is nothing but the handle: no surface of its
+     own, or an empty box would float beside it. */
+  .cluster {
+    gap: 0;
+    padding: 0;
+    border-color: transparent;
+    background: transparent;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .cluster .label,
+  .cluster .row {
+    display: none;
+  }
+
+  .clusterOpen {
+    gap: 7px;
+    padding: 9px 11px;
+    border-color: rgba(138, 43, 226, 0.28);
+    background: rgba(8, 10, 24, 0.55);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+
+  .clusterOpen .label,
+  .clusterOpen .row {
+    display: flex;
+  }
+}
+
 /* Shown when the browser refuses fullscreen outright */
 .note {
   font-family: var(--font-ui);
