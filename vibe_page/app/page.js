@@ -27,9 +27,10 @@ export default function Page() {
       Aether
       </h1>
 
-        {/* Script face, same as the panels' primary buttons — the tagline is
-            the page's own invitation, so it speaks in that voice too. Sized
-            up: cursive reads smaller than an upright face. */}
+        {/* Script face — the tagline is the page's own invitation, and the
+            one place the whimsy belongs: the panels' buttons now share the
+            UI face of the controls they sit among. Sized up: cursive reads
+            smaller than an upright face. */}
         <h2 className="font-script text-3xl text-gray-100/90 mt-3">
           Where sound becomes atmosphere
         </h2>

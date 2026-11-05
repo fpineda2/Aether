@@ -57,11 +57,11 @@
   border: 1px solid rgba(139, 92, 246, 0.55);
   background: linear-gradient(135deg, rgba(139, 92, 246, 0.32), rgba(59, 130, 246, 0.22));
   color: #fff;
-  /* Script, not the panel's sans: this is the invitation into the light
-     show, and a little whimsy suits it. Sized up because cursive letters
-     read smaller than an upright face at the same nominal size. */
-  font-family: var(--font-script);
-  font-size: 1.5rem;
+  /* The panel's own sans, same as "Use my own" and the chips below it: in
+     the script face this button belonged to a different piece of software
+     than the controls it governs. It leads on size and fill instead. */
+  font-family: var(--font-ui);
+  font-size: 1rem;
   font-weight: 600;
   letter-spacing: 0.01em;
   cursor: pointer;
