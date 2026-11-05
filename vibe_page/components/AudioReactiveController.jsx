@@ -72,6 +72,11 @@ export default function AudioReactiveController({
   // "Play a track" while your song is playing. Keep its name for the label.
   const [ownName, setOwnName] = useState("");
   const [voiceStyle, setVoiceStyle] = useState("strands");
+  // The voice-visual options start folded away: fully opened, this panel met
+  // a first-time visitor with ten controls at once, and the shape of the
+  // vocal ribbon is a refinement, not a decision to make before the music
+  // plays. The summary row keeps them findable.
+  const [voiceOpen, setVoiceOpen] = useState(false);
 
   // Read the remembered voice style after mount (localStorage isn't
   // available during SSR, and reading it in useState's initializer would
@@ -537,48 +542,76 @@ export default function AudioReactiveController({
           </div>
 
           {/* The vocal ribbon (components/VoiceVisualizer.jsx) — its own
-              section because it follows the singer, not the beat. */}
+              section because it follows the singer, not the beat. Folded
+              shut by default; the row below still says what's in there and
+              which shape is running, so this reads as a door rather than a
+              hidden feature. */}
           <div className={styles.group}>
-            <div className={styles.groupLabel}>Voice visuals</div>
-            <p className={styles.groupHint}>
-              A second visual that follows the vocals: pitch, phrasing, and the
-              color of each vowel. Pick a shape.
-            </p>
-            <div className={styles.chips}>
-              {VOICE_STYLES.map((s) => (
-                <button
-                  key={s}
-                  onClick={() => pickVoiceStyle(s)}
-                  aria-pressed={voiceStyle === s}
-                  className={`${styles.chip} ${voiceStyle === s ? styles.chipOn : ""}`}
-                >
-                  {VOICE_STYLE_LABELS[s]}
-                </button>
-              ))}
-            </div>
-
-            <div
-              className={`${styles.status} ${!capturing && stemSrc ? styles.statusExact : ""}`}
-              title={
-                !capturing && stemSrc
-                  ? "Reading the track's isolated vocal stem — only the voice, nothing else."
-                  : "Estimated from the full mix: it stays quiet until it hears a sung pitch, so instrumental tracks barely move it."
-              }
+            <button
+              onClick={() => setVoiceOpen((o) => !o)}
+              aria-expanded={voiceOpen}
+              title="Choose the shape the vocal visuals take"
+              className={styles.disclosure}
             >
-              <span className={styles.statusDot} />
-              {!capturing && stemSrc
-                ? "Reading this track's vocal stem — exact"
-                : "Following the voice by ear — add a vocal stem for an exact read"}
-            </div>
+              <span className={styles.groupLabel}>Voice visuals</span>
+              <span className={styles.disclosureValue}>
+                {VOICE_STYLE_LABELS[voiceStyle]}
+              </span>
+              <span className={`${styles.chevron} ${voiceOpen ? styles.chevronOpen : ""}`}>
+                ▾
+              </span>
+            </button>
 
-            {!capturing && stemSrc && (
-              <div className={styles.row} style={{ marginTop: 10 }}>
-                <button onClick={() => stemInputRef.current?.click()} className={styles.secondary}>
-                  Replace the vocal file
-                </button>
-              </div>
+            {!voiceOpen && (
+              <p className={styles.groupHint} style={{ margin: 0 }}>
+                A second visual follows the singer &mdash; open this to change
+                its shape.
+              </p>
             )}
           </div>
+
+          {voiceOpen && (
+            <div className={styles.groupOpen}>
+              <p className={styles.groupHint}>
+                A second visual that follows the vocals: pitch, phrasing, and the
+                color of each vowel. Pick a shape.
+              </p>
+              <div className={styles.chips}>
+                {VOICE_STYLES.map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => pickVoiceStyle(s)}
+                    aria-pressed={voiceStyle === s}
+                    className={`${styles.chip} ${voiceStyle === s ? styles.chipOn : ""}`}
+                  >
+                    {VOICE_STYLE_LABELS[s]}
+                  </button>
+                ))}
+              </div>
+
+              <div
+                className={`${styles.status} ${!capturing && stemSrc ? styles.statusExact : ""}`}
+                title={
+                  !capturing && stemSrc
+                    ? "Reading the track's isolated vocal stem — only the voice, nothing else."
+                    : "Estimated from the full mix: it stays quiet until it hears a sung pitch, so instrumental tracks barely move it."
+                }
+              >
+                <span className={styles.statusDot} />
+                {!capturing && stemSrc
+                  ? "Reading this track's vocal stem — exact"
+                  : "Following the voice by ear — add a vocal stem for an exact read"}
+              </div>
+
+              {!capturing && stemSrc && (
+                <div className={styles.row} style={{ marginTop: 10 }}>
+                  <button onClick={() => stemInputRef.current?.click()} className={styles.secondary}>
+                    Replace the vocal file
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
 
           <a href="/challenge" target="_blank" rel="noopener noreferrer" className={styles.cta}>
             <span>

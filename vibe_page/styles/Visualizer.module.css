@@ -116,6 +116,58 @@
   margin-bottom: 4px;
 }
 
+/* The body of a folded section: it belongs to the summary row above it, so
+   it carries no rule of its own — one divider per section, not two. */
+.groupOpen {
+  margin-top: 9px;
+}
+
+/* The summary row of a folded section. It names the section and the option
+   in use, so nothing is hidden — just put away until wanted. */
+.disclosure {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  margin-bottom: 5px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* The label's own 4px would double up with the row's margin above */
+.disclosure .groupLabel {
+  margin-bottom: 0;
+}
+
+.disclosureValue {
+  /* Pushes itself and the chevron to the right edge of the row */
+  margin-left: auto;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.74);
+  transition: color 0.16s ease;
+}
+
+.chevron {
+  font-size: 0.875rem;
+  line-height: 1;
+  color: rgba(103, 232, 249, 0.9);
+  transition: transform 0.18s ease;
+}
+
+.chevronOpen {
+  transform: rotate(180deg);
+}
+
+.disclosure:hover .disclosureValue {
+  color: #fff;
+}
+
 .groupHint {
   font-size: 0.8125rem;
   line-height: 1.4;
