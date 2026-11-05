@@ -14,19 +14,10 @@
 // rather than offering something that would do nothing.
 
 import { useEffect, useState } from "react";
-
-const buttonStyle = {
-  padding: "10px 16px",
-  background: "rgba(20,20,40,0.9)",
-  color: "#fff",
-  border: "1px solid rgba(138,43,226,0.6)",
-  borderRadius: 8,
-  cursor: "pointer",
-  boxShadow: "0 0 12px rgba(138,43,226,0.5)",
-  fontSize: 13,
-  fontFamily: "inherit",
-  whiteSpace: "nowrap",
-};
+// Shares the cluster's stylesheet so this button and "Only Background" are
+// the same button in two labels, rather than two near-identical copies of
+// the same inline style drifting apart.
+import styles from "./FocusModeWrapper.module.css";
 
 function fullscreenElement() {
   return document.fullscreenElement || document.webkitFullscreenElement || null;
@@ -81,18 +72,7 @@ export default function FullscreenToggle() {
   return (
     <>
       {blocked && (
-        <span
-          role="status"
-          style={{
-            fontSize: 12,
-            color: "#f0abfc",
-            background: "rgba(20,20,40,0.9)",
-            border: "1px solid rgba(138,43,226,0.4)",
-            borderRadius: 8,
-            padding: "6px 10px",
-            maxWidth: 260,
-          }}
-        >
+        <span role="status" className={styles.note}>
           Your browser wouldn&rsquo;t allow fullscreen — F11 usually works.
         </span>
       )}
@@ -103,7 +83,7 @@ export default function FullscreenToggle() {
             ? "Leave fullscreen (Esc also works)"
             : "Fill the screen — hides the browser's address bar and tabs"
         }
-        style={buttonStyle}
+        className={`${styles.btn} ${isFull ? styles.btnOn : ""}`}
       >
         {isFull ? "⤢ Exit Fullscreen" : "⛶ Fullscreen"}
       </button>
