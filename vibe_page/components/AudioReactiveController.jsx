@@ -54,6 +54,9 @@ export default function AudioReactiveController({
   // created and torn down fresh on every capture start/stop.
   const captureCtrlRef = useRef(null);
   const pickerRef = useRef(null);
+  const ownRef = useRef(null);
+  const songInputRef = useRef(null);
+  const stemInputRef = useRef(null);
   const autoPlayRef = useRef(false);
   const [src, setSrc] = useState(defaultSrc);
   const [stemSrc, setStemSrc] = useState("");
@@ -61,7 +64,19 @@ export default function AudioReactiveController({
   const [capturing, setCapturing] = useState(false);
   const [err, setErr] = useState("");
   const [pickerOpen, setPickerOpen] = useState(false);
+  // "Use my own" asks what you're bringing: a song, or a song plus its
+  // separated vocal. `awaitingStem` is the second step of the latter.
+  const [ownMenuOpen, setOwnMenuOpen] = useState(false);
+  const [awaitingStem, setAwaitingStem] = useState(false);
+  // A file of your own has no entry in DEMO_TRACKS, so the pill would read
+  // "Play a track" while your song is playing. Keep its name for the label.
+  const [ownName, setOwnName] = useState("");
   const [voiceStyle, setVoiceStyle] = useState("strands");
+  // The voice-visual options start folded away: fully opened, this panel met
+  // a first-time visitor with ten controls at once, and the shape of the
+  // vocal ribbon is a refinement, not a decision to make before the music
+  // plays. The summary row keeps them findable.
+  const [voiceOpen, setVoiceOpen] = useState(false);
 
   // Read the remembered voice style after mount (localStorage isn't
   // available during SSR, and reading it in useState's initializer would
@@ -116,6 +131,15 @@ export default function AudioReactiveController({
     document.addEventListener("mousedown", onDocClick);
     return () => document.removeEventListener("mousedown", onDocClick);
   }, [pickerOpen]);
+
+  useEffect(() => {
+    if (!ownMenuOpen) return;
+    function onDocClick(e) {
+      if (ownRef.current && !ownRef.current.contains(e.target)) setOwnMenuOpen(false);
+    }
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, [ownMenuOpen]);
 
   // Build the controller once, bound to the stable <audio> element.
   useEffect(() => {
@@ -283,26 +307,58 @@ export default function AudioReactiveController({
   // instead of just loading the source and waiting for a separate click.
   // The actual play() happens in the useLayoutEffect above, once the new
   // src has actually landed on the <audio> element.
-  function playSrc(newSrc, newStemSrc = "") {
+  // `autoPlay` is false for the first half of the two-file flow: starting the
+  // song the moment it's chosen would run it ahead of the vocal that hasn't
+  // been picked yet, and the two would never line up.
+  function playSrc(newSrc, newStemSrc = "", name = "", autoPlay = true) {
+    setOwnName(name);
     ctrlRef.current?.stop();
     stopCapture();
     setErr("");
-    autoPlayRef.current = true;
+    autoPlayRef.current = autoPlay;
     setSrc(newSrc);
     setStemSrc(newStemSrc);
   }
 
   // Pairs an isolated vocal stem with whatever track is currently loaded.
   // Replaced the moment a different track is picked (playSrc clears it).
-  function onStemFile(e) {
+  //
+  // Starts the track if it isn't already playing, the same way picking a
+  // track does: adding a stem with nothing playing otherwise looks like the
+  // button did nothing, when in fact it armed an exact read you can't see
+  // until there's music.
+  async function onStemFile(e) {
     const f = e.target.files?.[0];
     e.target.value = "";
     if (!f) return;
     const ext = f.name.split(".").pop()?.toLowerCase();
     const knownType = ext && EXT_MIME[ext];
     const file = knownType ? new File([f], f.name, { type: knownType }) : f;
+    setErr("");
+    setAwaitingStem(false);
     setStemSrc(URL.createObjectURL(file));
+
+    const el = audioRef.current;
+    if (!el || playing) return; // already running — the stem joins in sync
+    try {
+      el.currentTime = 0; // both files start together, so they stay together
+      await el.play(); // still inside the file-picker's user gesture
+      await ctrlRef.current?.start();
+      setPlaying(true);
+    } catch (err) {
+      setErr(err?.message || "Couldn't start audio");
+    }
   }
+
+  // Opening the file picker from here keeps the browser's user gesture, so
+  // the track can start playing the moment a file is chosen.
+  function chooseOwn(withStem) {
+    setOwnMenuOpen(false);
+    setAwaitingStem(withStem);
+    songInputRef.current?.click();
+  }
+
+
 
   function onFile(e) {
     const f = e.target.files?.[0];
@@ -310,7 +366,9 @@ export default function AudioReactiveController({
     const ext = f.name.split(".").pop()?.toLowerCase();
     const knownType = ext && EXT_MIME[ext];
     const file = knownType ? new File([f], f.name, { type: knownType }) : f;
-    playSrc(URL.createObjectURL(file));
+    // Drop the extension: "my_song.wav" reads better as "my_song".
+    // Waiting on a vocal file? Load but don't start — see playSrc.
+    playSrc(URL.createObjectURL(file), "", f.name.replace(/\.[^.]+$/, ""), !awaitingStem);
   }
 
   function onSelectTrack(file) {
@@ -354,6 +412,9 @@ export default function AudioReactiveController({
       <audio ref={audioRef} src={src} loop hidden />
       {/* Vocal stem: analyzed only, never heard — kept in sync by the controller */}
       <audio ref={stemRef} src={stemSrc || undefined} loop hidden preload="auto" />
+      {/* One pair of pickers for the whole panel, opened from the menu above */}
+      <input ref={songInputRef} type="file" accept="audio/*" onChange={onFile} style={{ display: "none" }} />
+      <input ref={stemInputRef} type="file" accept="audio/*" onChange={onStemFile} style={{ display: "none" }} />
       {active && (
         <div>
           {/* Each way of feeding the visualizer gets its own labeled block.
@@ -379,7 +440,7 @@ export default function AudioReactiveController({
               <div ref={pickerRef} className={styles.pickerWrap}>
                 <div className={`${styles.pill} ${playing ? styles.pillOn : ""}`}>
                   <button onClick={togglePlay} className={styles.pillPlay}>
-                    {playing ? "⏸" : "▶"} {currentTrack ? currentTrack.label : "Play a track"}
+                    {playing ? "⏸" : "▶"} {currentTrack ? currentTrack.label : ownName || "Play a track"}
                   </button>
                   <button
                     onClick={() => setPickerOpen((o) => !o)}
@@ -409,10 +470,33 @@ export default function AudioReactiveController({
                 )}
               </div>
 
-              <label className={styles.secondary}>
-                Use my own
-                <input type="file" accept="audio/*" onChange={onFile} style={{ display: "none" }} />
-              </label>
+              <div ref={ownRef} style={{ position: "relative" }}>
+                <button
+                  onClick={() => setOwnMenuOpen((o) => !o)}
+                  aria-expanded={ownMenuOpen}
+                  title="Play a file from your own machine"
+                  className={styles.secondary}
+                >
+                  Use my own ▾
+                </button>
+
+                {ownMenuOpen && (
+                  <div className={styles.menu}>
+                    <div className={styles.menuItem} onClick={() => chooseOwn(false)}>
+                      Just the song
+                      <div className={styles.menuNote}>
+                        The voice is picked out by ear — good, not exact
+                      </div>
+                    </div>
+                    <div className={styles.menuItem} onClick={() => chooseOwn(true)}>
+                      Song + separated vocal
+                      <div className={styles.menuNote}>
+                        Two files. The voice visuals read the vocal directly — exact
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
 
               {/* Can't read a DRM stream directly, so this captures whatever's
                   already playing out loud from a shared tab, the same way a
@@ -431,6 +515,24 @@ export default function AudioReactiveController({
                 )}
               </button>
             </div>
+            {/* Step two of "song + separated vocal". The song is already
+                playing by now, so this says what's still missing rather than
+                blocking on a modal. */}
+            {awaitingStem && !capturing && (
+              <div className={styles.step}>
+                <div>
+                  <strong>Now add the separated vocal</strong>
+                  <div className={styles.groupHint} style={{ margin: "3px 0 0" }}>
+                    The vocal-only version of the same song, starting at the same
+                    moment. Playback waits for it, so the two stay in step.
+                  </div>
+                </div>
+                <button onClick={() => stemInputRef.current?.click()} className={`${styles.secondary} ${styles.accent}`}>
+                  Choose file
+                </button>
+              </div>
+            )}
+
             {capturing && (
               <div className={styles.status}>
                 <span className={`${styles.statusDot} ${styles.live}`} />
@@ -440,54 +542,76 @@ export default function AudioReactiveController({
           </div>
 
           {/* The vocal ribbon (components/VoiceVisualizer.jsx) — its own
-              section because it follows the singer, not the beat. */}
+              section because it follows the singer, not the beat. Folded
+              shut by default; the row below still says what's in there and
+              which shape is running, so this reads as a door rather than a
+              hidden feature. */}
           <div className={styles.group}>
-            <div className={styles.groupLabel}>Voice visuals</div>
-            <p className={styles.groupHint}>
-              A second visual that follows the vocals: pitch, phrasing, and the
-              color of each vowel. Pick a shape.
-            </p>
-            <div className={styles.chips}>
-              {VOICE_STYLES.map((s) => (
-                <button
-                  key={s}
-                  onClick={() => pickVoiceStyle(s)}
-                  aria-pressed={voiceStyle === s}
-                  className={`${styles.chip} ${voiceStyle === s ? styles.chipOn : ""}`}
-                >
-                  {VOICE_STYLE_LABELS[s]}
-                </button>
-              ))}
-            </div>
-
-            <div
-              className={`${styles.status} ${!capturing && stemSrc ? styles.statusExact : ""}`}
-              title={
-                !capturing && stemSrc
-                  ? "Reading the track's isolated vocal stem — only the voice, nothing else."
-                  : "Estimated from the full mix: it stays quiet until it hears a sung pitch, so instrumental tracks barely move it."
-              }
+            <button
+              onClick={() => setVoiceOpen((o) => !o)}
+              aria-expanded={voiceOpen}
+              title="Choose the shape the vocal visuals take"
+              className={styles.disclosure}
             >
-              <span className={styles.statusDot} />
-              {!capturing && stemSrc
-                ? "Reading this track's vocal stem — exact"
-                : "Following the voice by ear — add a vocal stem for an exact read"}
-            </div>
+              <span className={styles.groupLabel}>Voice visuals</span>
+              <span className={styles.disclosureValue}>
+                {VOICE_STYLE_LABELS[voiceStyle]}
+              </span>
+              <span className={`${styles.chevron} ${voiceOpen ? styles.chevronOpen : ""}`}>
+                ▾
+              </span>
+            </button>
 
-            {!capturing && (
-              <div className={styles.row} style={{ marginTop: 10 }}>
-                <label className={`${styles.secondary} ${styles.accent}`}>
-                  {stemSrc ? "Replace vocal stem" : "Add vocal stem"}
-                  <input
-                    type="file"
-                    accept="audio/*"
-                    onChange={onStemFile}
-                    style={{ display: "none" }}
-                  />
-                </label>
-              </div>
+            {!voiceOpen && (
+              <p className={styles.groupHint} style={{ margin: 0 }}>
+                A second visual follows the singer &mdash; open this to change
+                its shape.
+              </p>
             )}
           </div>
+
+          {voiceOpen && (
+            <div className={styles.groupOpen}>
+              <p className={styles.groupHint}>
+                A second visual that follows the vocals: pitch, phrasing, and the
+                color of each vowel. Pick a shape.
+              </p>
+              <div className={styles.chips}>
+                {VOICE_STYLES.map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => pickVoiceStyle(s)}
+                    aria-pressed={voiceStyle === s}
+                    className={`${styles.chip} ${voiceStyle === s ? styles.chipOn : ""}`}
+                  >
+                    {VOICE_STYLE_LABELS[s]}
+                  </button>
+                ))}
+              </div>
+
+              <div
+                className={`${styles.status} ${!capturing && stemSrc ? styles.statusExact : ""}`}
+                title={
+                  !capturing && stemSrc
+                    ? "Reading the track's isolated vocal stem — only the voice, nothing else."
+                    : "Estimated from the full mix: it stays quiet until it hears a sung pitch, so instrumental tracks barely move it."
+                }
+              >
+                <span className={styles.statusDot} />
+                {!capturing && stemSrc
+                  ? "Reading this track's vocal stem — exact"
+                  : "Following the voice by ear — add a vocal stem for an exact read"}
+              </div>
+
+              {!capturing && stemSrc && (
+                <div className={styles.row} style={{ marginTop: 10 }}>
+                  <button onClick={() => stemInputRef.current?.click()} className={styles.secondary}>
+                    Replace the vocal file
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
 
           <a href="/challenge" target="_blank" rel="noopener noreferrer" className={styles.cta}>
             <span>

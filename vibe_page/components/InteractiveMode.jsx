@@ -34,12 +34,24 @@ export default function InteractiveMode() {
     }
   }
 
+  // FocusModeWrapper listens for this and flashes its corner cluster, so
+  // "top-right corner" doesn't send anyone hunting.
+  function pointAtFocusControls() {
+    window.dispatchEvent(new Event("aether-focus-hint"));
+  }
+
   function toggleActive() {
-    setActive((a) => {
-      const next = !a;
-      if (next) pauseSpotify();
-      return next;
-    });
+    // Side effects stay out of the state updater: React may run that
+    // function twice, which would fire the hint twice on one click.
+    const next = !active;
+    setActive(next);
+    if (next) {
+      pauseSpotify();
+      // The moment someone opens the light show is the moment they'd want
+      // the page itself out of the way — so this is when to say where those
+      // controls are.
+      pointAtFocusControls();
+    }
   }
 
   return (
@@ -59,6 +71,22 @@ export default function InteractiveMode() {
         className={`${styles.primary} ${active ? styles.primaryOn : ""}`}
       >
         {active ? "Immersive Mode is on" : "Turn on Immersive Mode"}
+      </button>
+
+      {/* The two controls that clear everything away — Fullscreen and "Only
+          Background" — live in the page's top-right corner, which is the
+          last place someone chasing the light show thinks to look. This
+          says where they are and flashes that corner on click, rather than
+          duplicating the controls down here where they'd have to be kept in
+          step with the originals. */}
+      <button type="button" onClick={pointAtFocusControls} className={styles.cornerHint}>
+        <span>
+          Want nothing but the visuals? <strong>Fullscreen</strong> and{" "}
+          <strong>Only Background</strong> are in the top-right corner.
+        </span>
+        <span className={styles.cornerHintArrow} aria-hidden="true">
+          ↗
+        </span>
       </button>
 
       <AudioReactiveController active={active} />

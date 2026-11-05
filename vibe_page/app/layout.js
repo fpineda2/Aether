@@ -68,18 +68,6 @@ export default function RootLayout({ children }) {
 
     }
 
-    const count = Math.floor((starCanvas.width * starCanvas.height) / 15000 * perfScale) // density scales with screen
-    starsRef.current = Array.from({ length: count }, () => ({
-        x: Math.random() * starCanvas.width,
-        y: Math.random() * starCanvas.height,
-        r: Math.random() * 0.9 + 0.4, // 0.4–1.3 px
-        a: Math.random() * Math.PI * 2, // phase
-        s: Math.random() * 0.015 + 0.007, // twinkle speed
-      }))
-
-      // Publish star data so AudioReactiveStarfield's pulse renderer can draw it
-    window.__starsData = starsRef.current
-
     let starRaf = null
     function drawStars() {
       // Only draw if AudioReactiveStarfield isn't controlling it
@@ -99,7 +87,24 @@ export default function RootLayout({ children }) {
       starRaf = document.hidden ? null : requestAnimationFrame(drawStars)
     }
 
+    // Size the canvas BEFORE counting stars. This ran the other way round,
+    // so the count came off an unsized canvas's 300x150 default — three
+    // stars, halved to one on a "low power" device, for every screen. The
+    // starfield has been a single pixel this whole time.
     resizeStar()
+
+    const count = Math.floor((starCanvas.width * starCanvas.height) / 15000 * perfScale) // density scales with screen
+    starsRef.current = Array.from({ length: count }, () => ({
+      x: Math.random() * starCanvas.width,
+      y: Math.random() * starCanvas.height,
+      r: Math.random() * 0.9 + 0.4, // 0.4–1.3 px
+      a: Math.random() * Math.PI * 2, // phase
+      s: Math.random() * 0.015 + 0.007, // twinkle speed
+    }))
+
+    // Publish star data so AudioReactiveStarfield's pulse renderer can draw it
+    window.__starsData = starsRef.current
+
     drawStars()
     window.addEventListener("resize", resizeStar)
 

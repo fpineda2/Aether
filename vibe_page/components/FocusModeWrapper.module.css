@@ -1,0 +1,185 @@
+/* styles for the corner cluster in components/FocusModeWrapper.jsx and the
+   button inside components/FullscreenToggle.jsx.
+
+   These two buttons were unlabeled and unexplained in a corner nobody
+   thinks to look at: visitors who wanted the visuals with nothing else on
+   screen never found either one. The cluster now carries a caption saying
+   what it is for, and it can be made to flash from across the page (see
+   .pulse) when something elsewhere points at it. */
+
+.cluster {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  /* Above CursorWrapper's own fixed panel, which also claims a top z-index */
+  z-index: 2147483647;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 7px;
+  padding: 9px 11px;
+  border-radius: 14px;
+  border: 1px solid rgba(138, 43, 226, 0.28);
+  background: rgba(8, 10, 24, 0.55);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+/* Says what the two buttons are for, in the same voice as the visualizer
+   panel's section labels. */
+.label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--font-ui);
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(103, 232, 249, 0.85);
+}
+
+.label::before {
+  content: "";
+  width: 12px;
+  height: 2px;
+  border-radius: 2px;
+  background: currentColor;
+}
+
+/* One row so the two buttons never land on top of each other as their
+   labels change width. */
+.row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.btn {
+  padding: 9px 14px;
+  background: rgba(20, 20, 40, 0.9);
+  color: #fff;
+  border: 1px solid rgba(138, 43, 226, 0.6);
+  border-radius: 8px;
+  cursor: pointer;
+  box-shadow: 0 0 12px rgba(138, 43, 226, 0.5);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.btn:hover {
+  border-color: rgba(103, 232, 249, 0.7);
+  box-shadow: 0 0 16px rgba(103, 232, 249, 0.35);
+}
+
+.btnOn {
+  box-shadow: 0 0 12px rgba(138, 43, 226, 0.7);
+}
+
+/* A hint elsewhere on the page can point here; without this the visitor is
+   told to look at a corner and has to find which of its controls was meant.
+   It's its own element rather than a class on the cluster so that a second
+   hint remounts it and replays the flash. Three beats is enough to catch
+   the eye and short enough not to nag. */
+.ring {
+  position: absolute;
+  inset: -1px;
+  border: 1px solid transparent;
+  border-radius: 15px;
+  pointer-events: none;
+  animation: cornerPulse 0.85s ease-out 3;
+}
+
+@keyframes cornerPulse {
+  0% {
+    border-color: rgba(103, 232, 249, 0.95);
+    box-shadow: 0 0 0 0 rgba(103, 232, 249, 0.45);
+  }
+  100% {
+    border-color: rgba(103, 232, 249, 0);
+    box-shadow: 0 0 0 16px rgba(103, 232, 249, 0);
+  }
+}
+
+/* Honors a visitor who has asked their system for less motion: the flash is
+   decoration, and a steady highlight points just as well. It is taken away
+   by the same timer that would have outlasted the animation. */
+@media (prefers-reduced-motion: reduce) {
+  .ring {
+    animation: none;
+    border-color: rgba(103, 232, 249, 0.9);
+  }
+}
+
+/* The collapsed form, phones only. The captioned box is wider than the
+   space either side of the centered "Aether" wordmark, so at this width it
+   covered the page's own title; a handle in the corner clears it. Hidden
+   above the breakpoint, where the box has room to introduce itself. */
+.handle {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  background: rgba(20, 20, 40, 0.9);
+  color: #fff;
+  border: 1px solid rgba(138, 43, 226, 0.6);
+  border-radius: 10px;
+  cursor: pointer;
+  box-shadow: 0 0 12px rgba(138, 43, 226, 0.5);
+  font-family: var(--font-ui);
+  font-size: 16px;
+  line-height: 1;
+}
+
+@media (max-width: 767px) {
+  .handle {
+    display: inline-flex;
+  }
+
+  /* Collapsed, the cluster is nothing but the handle: no surface of its
+     own, or an empty box would float beside it. */
+  .cluster {
+    gap: 0;
+    padding: 0;
+    border-color: transparent;
+    background: transparent;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .cluster .label,
+  .cluster .row {
+    display: none;
+  }
+
+  .clusterOpen {
+    gap: 7px;
+    padding: 9px 11px;
+    border-color: rgba(138, 43, 226, 0.28);
+    background: rgba(8, 10, 24, 0.55);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+
+  .clusterOpen .label,
+  .clusterOpen .row {
+    display: flex;
+  }
+}
+
+/* Shown when the browser refuses fullscreen outright */
+.note {
+  font-family: var(--font-ui);
+  font-size: 12px;
+  color: #f0abfc;
+  background: rgba(20, 20, 40, 0.9);
+  border: 1px solid rgba(138, 43, 226, 0.4);
+  border-radius: 8px;
+  padding: 6px 10px;
+  max-width: 260px;
+}

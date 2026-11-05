@@ -57,11 +57,11 @@
   border: 1px solid rgba(139, 92, 246, 0.55);
   background: linear-gradient(135deg, rgba(139, 92, 246, 0.32), rgba(59, 130, 246, 0.22));
   color: #fff;
-  /* Script, not the panel's sans: this is the invitation into the light
-     show, and a little whimsy suits it. Sized up because cursive letters
-     read smaller than an upright face at the same nominal size. */
-  font-family: var(--font-script);
-  font-size: 1.5rem;
+  /* The panel's own sans, same as "Use my own" and the chips below it: in
+     the script face this button belonged to a different piece of software
+     than the controls it governs. It leads on size and fill instead. */
+  font-family: var(--font-ui);
+  font-size: 1rem;
   font-weight: 600;
   letter-spacing: 0.01em;
   cursor: pointer;
@@ -81,6 +81,49 @@
   border-color: rgba(103, 232, 249, 0.6);
   background: linear-gradient(135deg, rgba(139, 92, 246, 0.5), rgba(255, 46, 166, 0.28));
   box-shadow: 0 0 26px rgba(139, 92, 246, 0.4);
+}
+
+/* Points at the fullscreen and "Only Background" controls in the page's
+   top-right corner. They're easy to miss up there, and they are exactly
+   what a visitor who came for the visuals wants — so the panel that invites
+   them in says where they are, and a click makes that corner flash. Quiet
+   on purpose: it's a signpost, not a fourth button competing with the
+   three below it. */
+.cornerHint {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  margin-top: 8px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  border: 1px dashed rgba(103, 232, 249, 0.35);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.66);
+  font-family: inherit;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.16s ease, background 0.16s ease, color 0.16s ease;
+}
+
+.cornerHint strong {
+  font-weight: 600;
+  color: rgba(165, 243, 252, 0.95);
+}
+
+.cornerHint:hover {
+  border-color: rgba(103, 232, 249, 0.6);
+  background: rgba(103, 232, 249, 0.07);
+  color: rgba(255, 255, 255, 0.86);
+}
+
+.cornerHintArrow {
+  flex-shrink: 0;
+  font-size: 1rem;
+  color: #67e8f9;
 }
 
 /* Each option gets its own block, so nothing reads as fine print. Spacing
@@ -114,6 +157,58 @@
   text-transform: uppercase;
   color: rgba(103, 232, 249, 0.9);
   margin-bottom: 4px;
+}
+
+/* The body of a folded section: it belongs to the summary row above it, so
+   it carries no rule of its own — one divider per section, not two. */
+.groupOpen {
+  margin-top: 9px;
+}
+
+/* The summary row of a folded section. It names the section and the option
+   in use, so nothing is hidden — just put away until wanted. */
+.disclosure {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  margin-bottom: 5px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* The label's own 4px would double up with the row's margin above */
+.disclosure .groupLabel {
+  margin-bottom: 0;
+}
+
+.disclosureValue {
+  /* Pushes itself and the chevron to the right edge of the row */
+  margin-left: auto;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.74);
+  transition: color 0.16s ease;
+}
+
+.chevron {
+  font-size: 0.875rem;
+  line-height: 1;
+  color: rgba(103, 232, 249, 0.9);
+  transition: transform 0.18s ease;
+}
+
+.chevronOpen {
+  transform: rotate(180deg);
+}
+
+.disclosure:hover .disclosureValue {
+  color: #fff;
 }
 
 .groupHint {
@@ -217,6 +312,35 @@
 .menuItem:hover {
   background: rgba(103, 232, 249, 0.16);
   color: #67e8f9;
+}
+
+/* The "use my own" menu explains each choice, so nobody has to guess what a
+   separated vocal buys them. */
+.menuNote {
+  margin-top: 2px;
+  font-size: 0.75rem;
+  line-height: 1.35;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.menuItem:hover .menuNote {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+/* Step two of "song + separated vocal": the song is already playing, so this
+   is a prompt for what's still missing, not a modal in the way. */
+.step {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(103, 232, 249, 0.35);
+  background: rgba(103, 232, 249, 0.08);
+  font-size: 0.875rem;
 }
 
 .menuItemOn {
