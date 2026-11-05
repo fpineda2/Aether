@@ -36,7 +36,7 @@ export default function Page() {
         </h2>
 
           <h3 className="font-[var(--font-body)] text-gray-200/90 mt-2">
-          An interactive audiovisual dashboard that transforms music into responsive costmic motion, and color.
+          An interactive audiovisual dashboard that transforms music into responsive cosmic motion, and color.
           </h3>
 
       </header>
